@@ -1,14 +1,15 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useErpStore } from '../../store/erp'
+import { useEmployeeStore } from '../../store/employees'
+import { useShiftsStore } from '../../store/shifts'
 import BaseButton from '../../components/BaseButton.vue'
 import { ArrowLeftIcon } from '@lucide/vue'
-import * as api from '../../api'
 
 const route = useRoute()
 const router = useRouter()
-const erpStore = useErpStore()
+const employeeStore = useEmployeeStore()
+const shiftsStore = useShiftsStore()
 
 const employeeId = ref(route.params.id)
 const form = ref({
@@ -44,15 +45,15 @@ const handleAvatarChange = (e) => {
 
 onMounted(async () => {
   await Promise.allSettled([
-    erpStore.loadDepartmentsOnly(),
-    erpStore.loadPositionsOnly(),
-    erpStore.loadOfficeLocationsOnly(),
-    erpStore.fetchShiftsOnlyAction(),
-    erpStore.fetchWorkScheduleMastersAction()
+    employeeStore.loadDepartmentsOnly(),
+    employeeStore.loadPositionsOnly(),
+    employeeStore.loadOfficeLocationsOnly(),
+    shiftsStore.fetchShiftsOnlyAction(),
+    shiftsStore.fetchWorkScheduleMastersAction()
   ])
   try {
     console.log('[API] Fetching employee details for ID:', employeeId.value)
-    const res = await api.fetchEmployee(employeeId.value)
+    const res = await employeeStore.fetchEmployee(employeeId.value)
     if (res && res.success && res.data) {
       const emp = res.data
       currentAvatarUrl.value = emp.avatar_url || emp.avatar || null
@@ -104,7 +105,7 @@ const handleSave = async () => {
         delete payload.password
       }
     }
-    await erpStore.updateEmployeeAction(employeeId.value, payload)
+    await employeeStore.updateEmployeeAction(employeeId.value, payload)
     router.push('/employees')
   } catch (err) {
     alert('Aksi gagal: ' + err.message)
@@ -164,14 +165,14 @@ const handleSave = async () => {
           <label class="block font-bold text-slate-500 uppercase mb-1">Departemen</label>
           <select v-model="form.department_id" required class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:outline-none focus:border-emerald-500 text-xs">
             <option value="">-- Pilih Departemen --</option>
-            <option v-for="dept in erpStore.departments" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
+            <option v-for="dept in employeeStore.departments" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
           </select>
         </div>
         <div>
           <label class="block font-bold text-slate-500 uppercase mb-1">Jabatan</label>
           <select v-model="form.position_id" required class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:outline-none focus:border-emerald-500 text-xs">
             <option value="">-- Pilih Jabatan --</option>
-            <option v-for="pos in erpStore.positions" :key="pos.id" :value="pos.id">{{ pos.name }}</option>
+            <option v-for="pos in employeeStore.positions" :key="pos.id" :value="pos.id">{{ pos.name }}</option>
           </select>
         </div>
         <!-- Shift Mode (Fixed vs Roster) -->
@@ -190,7 +191,7 @@ const handleSave = async () => {
               <label class="block font-bold text-emerald-800 uppercase mb-1 text-[10px]">Master Pola Kerja Kantor (work_schedule_id)</label>
               <select v-model="form.work_schedule_id" class="w-full bg-white border border-slate-200 rounded-lg p-2.5 focus:outline-none focus:border-emerald-500 text-xs font-medium">
                 <option value="">-- Master Default (WS-REG-5D / 5 Hari) --</option>
-                <option v-for="ws in erpStore.workScheduleMasters" :key="ws.id" :value="ws.id">
+                <option v-for="ws in shiftsStore.workScheduleMasters" :key="ws.id" :value="ws.id">
                   {{ ws.name }} ({{ ws.code }})
                 </option>
               </select>
@@ -201,7 +202,7 @@ const handleSave = async () => {
               <label class="block font-bold text-emerald-800 uppercase mb-1 text-[10px]">Shift Tetap Pagi/Kantor (shift_id)</label>
               <select v-model="form.shift_id" class="w-full bg-white border border-slate-200 rounded-lg p-2.5 focus:outline-none focus:border-emerald-500 text-xs font-medium">
                 <option value="">-- Pilih Jam Shift Tetap --</option>
-                <option v-for="sf in (erpStore.shifts || [])" :key="sf.id" :value="sf.id">
+                <option v-for="sf in (shiftsStore.shifts || [])" :key="sf.id" :value="sf.id">
                   {{ sf.name }} ({{ sf.startTime || sf.start_time }} - {{ sf.endTime || sf.end_time }})
                 </option>
               </select>

@@ -1,17 +1,16 @@
 <script setup>
-import { ref, watch } from 'vue'
-import { useErpStore } from '../../../store/erp'
+import { ref, watch, onMounted } from 'vue'
+import { useShiftsStore } from '../../../store/shifts'
 import BaseBadge from '../../../components/BaseBadge.vue'
 import BaseButton from '../../../components/BaseButton.vue'
 import BasePagination from '../../../components/BasePagination.vue'
 import { CalendarDaysIcon, PlusIcon, EyeIcon, SearchIcon, TrashIcon, XIcon } from '@lucide/vue'
 import { confirmAction } from '../../../utils/swal'
 import { showToastSuccess, showToastError } from '../../../utils/toast'
-import * as api from '../../../api'
 
 import ScheduleAdjustmentModal from './ScheduleAdjustmentModal.vue'
 
-const erpStore = useErpStore()
+const shiftsStore = useShiftsStore()
 
 const emit = defineEmits([
   'open-create-plan',
@@ -50,7 +49,7 @@ const fetchFilteredPlans = async (page = 1) => {
   currentPage.value = page
   try {
     isSearching.value = true
-    await erpStore.fetchRosterPlansFilteredAction({
+    await shiftsStore.fetchRosterPlansFilteredAction({
       page: currentPage.value,
       per_page: 9,
       search: searchQuery.value,
@@ -62,8 +61,6 @@ const fetchFilteredPlans = async (page = 1) => {
     isSearching.value = false
   }
 }
-
-import { onMounted } from 'vue'
 
 watch([searchQuery, statusFilter], () => {
   fetchFilteredPlans(1)
@@ -88,7 +85,7 @@ const handleDeletePlan = async (plan) => {
   if (!isConfirmed) return
 
   try {
-    const res = await erpStore.deleteRosterPlanAction(plan.id)
+    const res = await shiftsStore.deleteRosterPlanAction(plan.id)
     if (res && res.success) {
       showToastSuccess(`🗑️ Roster Plan '${plan.name}' berhasil dihapus!`)
       fetchFilteredPlans(currentPage.value)
@@ -130,7 +127,7 @@ const fetchEntriesPage = async (page = 1) => {
       params.end_date = entryEndDate.value
     }
 
-    const res = await api.fetchRosters(page, 15, params)
+    const res = await shiftsStore.fetchRosters(page, 15, params)
     if (res && res.success && res.data) {
       const items = Array.isArray(res.data.data) ? res.data.data : (Array.isArray(res.data) ? res.data : [])
       
@@ -236,7 +233,7 @@ const formatDate = (dateStr) => {
     <!-- Roster Plans List -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <div
-        v-for="plan in erpStore.rosterPlans"
+        v-for="plan in shiftsStore.rosterPlans"
         :key="plan.id"
         class="p-4 rounded-xl border bg-white shadow-2xs flex flex-col justify-between transition-all hover:border-slate-300 group relative space-y-4"
         :class="
@@ -370,7 +367,7 @@ const formatDate = (dateStr) => {
       </div>
 
       <!-- Empty Roster Plans state -->
-      <div v-if="!erpStore.rosterPlans || !erpStore.rosterPlans.length" class="col-span-3 p-12 text-center bg-white border border-dashed border-slate-200 rounded-2xl">
+      <div v-if="!shiftsStore.rosterPlans || !shiftsStore.rosterPlans.length" class="col-span-3 p-12 text-center bg-white border border-dashed border-slate-200 rounded-2xl">
         <CalendarDaysIcon class="size-10 text-slate-300 mx-auto mb-3" />
         <h3 class="font-display font-bold text-slate-700 text-sm mb-1">Belum Ada Container Roster Plan</h3>
         <p class="text-xs text-slate-400 mb-4 max-w-sm mx-auto">Buat Roster Plan baru per periode bulanan untuk mulai meng-generate roster otomatis dan validasi kelengkapan.</p>
@@ -382,14 +379,14 @@ const formatDate = (dateStr) => {
     </div>
 
     <!-- PAGINATION BAR FOR ROSTER PLANS -->
-    <div v-if="erpStore.rosterPlansPaginated && erpStore.rosterPlansPaginated.total > 0" class="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+    <div v-if="shiftsStore.rosterPlansPaginated && shiftsStore.rosterPlansPaginated.total > 0" class="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
       <span class="text-xs text-slate-500 font-mono">
-        Total Roster Plan: <strong>{{ erpStore.rosterPlansPaginated.total }}</strong>
+        Total Roster Plan: <strong>{{ shiftsStore.rosterPlansPaginated.total }}</strong>
       </span>
       <BasePagination
-        :current-page="erpStore.rosterPlansPaginated.current_page || 1"
-        :last-page="erpStore.rosterPlansPaginated.last_page || 1"
-        :total="erpStore.rosterPlansPaginated.total || 0"
+        :current-page="shiftsStore.rosterPlansPaginated.current_page || 1"
+        :last-page="shiftsStore.rosterPlansPaginated.last_page || 1"
+        :total="shiftsStore.rosterPlansPaginated.total || 0"
         :per-page="9"
         @page-change="(p) => fetchFilteredPlans(p)"
       />

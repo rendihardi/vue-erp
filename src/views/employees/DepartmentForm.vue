@@ -1,13 +1,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useErpStore } from '../../store/erp'
+import { useEmployeeStore } from '../../store/employees'
 import BaseButton from '../../components/BaseButton.vue'
 import { ArrowLeftIcon } from '@lucide/vue'
 
 const route = useRoute()
 const router = useRouter()
-const erpStore = useErpStore()
+const employeeStore = useEmployeeStore()
 
 const isEdit = ref(false)
 const departmentId = ref(null)
@@ -20,12 +20,12 @@ const form = ref({
 })
 
 onMounted(async () => {
-  await erpStore.loadDepartmentsOnly()
+  await employeeStore.loadDepartmentsOnly()
   if (route.params.id) {
     isEdit.value = true
     departmentId.value = route.params.id
     
-    const dept = erpStore.departments.find(d => d.id === departmentId.value)
+    const dept = employeeStore.departments.find(d => d.id === departmentId.value)
     if (dept) {
       form.value = {
         name: dept.name,
@@ -40,9 +40,9 @@ onMounted(async () => {
 const handleSave = async () => {
   try {
     if (isEdit.value) {
-      await erpStore.updateDepartmentAction(departmentId.value, form.value)
+      await employeeStore.updateDepartmentAction(departmentId.value, form.value)
     } else {
-      await erpStore.createDepartmentAction(form.value)
+      await employeeStore.createDepartmentAction(form.value)
     }
     // Go back to employees page and set activeTab to departments
     router.push({ path: '/employees', query: { tab: 'departments' } })

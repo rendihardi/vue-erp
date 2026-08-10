@@ -1,13 +1,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useErpStore } from '../../store/erp'
+import { useEmployeeStore } from '../../store/employees'
 import BaseButton from '../../components/BaseButton.vue'
 import { ArrowLeftIcon } from '@lucide/vue'
 
 const route = useRoute()
 const router = useRouter()
-const erpStore = useErpStore()
+const employeeStore = useEmployeeStore()
 
 const isEdit = ref(false)
 const positionId = ref(null)
@@ -17,12 +17,12 @@ const form = ref({
 })
 
 onMounted(async () => {
-  await erpStore.loadPositionsOnly()
+  await employeeStore.loadPositionsOnly()
   if (route.params.id) {
     isEdit.value = true
     positionId.value = route.params.id
     
-    const pos = erpStore.positions.find(p => p.id === positionId.value)
+    const pos = employeeStore.positions.find(p => p.id === positionId.value)
     if (pos) {
       form.value = {
         name: pos.name
@@ -34,9 +34,9 @@ onMounted(async () => {
 const handleSave = async () => {
   try {
     if (isEdit.value) {
-      await erpStore.updatePositionAction(positionId.value, form.value)
+      await employeeStore.updatePositionAction(positionId.value, form.value)
     } else {
-      await erpStore.createPositionAction(form.value)
+      await employeeStore.createPositionAction(form.value)
     }
     router.push({ path: '/employees', query: { tab: 'positions' } })
   } catch (err) {

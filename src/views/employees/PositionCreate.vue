@@ -1,12 +1,12 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useErpStore } from '../../store/erp'
+import { useEmployeeStore } from '../../store/employees'
 import BaseButton from '../../components/BaseButton.vue'
 import { ArrowLeftIcon } from '@lucide/vue'
 
 const router = useRouter()
-const erpStore = useErpStore()
+const employeeStore = useEmployeeStore()
 
 const form = ref({
   name: ''
@@ -14,7 +14,7 @@ const form = ref({
 
 const handleSave = async () => {
   try {
-    await erpStore.createPositionAction(form.value)
+    await employeeStore.createPositionAction(form.value)
     router.push({ path: '/employees', query: { tab: 'positions' } })
   } catch (err) {
     alert('Aksi gagal: ' + err.message)

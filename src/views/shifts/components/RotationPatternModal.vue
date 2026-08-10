@@ -1,12 +1,11 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import { useErpStore } from '../../../store/erp'
+import { useShiftsStore } from '../../../store/shifts'
 import BaseButton from '../../../components/BaseButton.vue'
 import { PlusIcon, TrashIcon } from '@lucide/vue'
 import { showToastSuccess, showToastError, showToastWarning } from '../../../utils/toast'
-import * as api from '../../../api'
 
-const erpStore = useErpStore()
+const shiftsStore = useShiftsStore()
 
 const props = defineProps({
   show: {
@@ -22,7 +21,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'saved'])
 
 const availableShifts = computed(() => {
-  return Array.isArray(erpStore.shifts) ? erpStore.shifts : []
+  return Array.isArray(shiftsStore.shifts) ? shiftsStore.shifts : []
 })
 
 const form = ref({
@@ -37,8 +36,8 @@ const isSubmitting = ref(false)
 
 watch([() => props.show, () => props.team], async ([isShowing, t]) => {
   if (isShowing) {
-    if (!erpStore.shifts || !erpStore.shifts.length) {
-      await erpStore.fetchShiftsOnlyAction()
+    if (!shiftsStore.shifts || !shiftsStore.shifts.length) {
+      await shiftsStore.fetchShiftsOnlyAction()
     }
     if (t && t.id) {
       const rawSeq = Array.isArray(t.rotation_sequence) && t.rotation_sequence.length
@@ -80,8 +79,8 @@ const addStep = () => {
 }
 
 onMounted(() => {
-  if (!erpStore.shifts || !erpStore.shifts.length) {
-    erpStore.fetchShiftsOnlyAction()
+  if (!shiftsStore.shifts || !shiftsStore.shifts.length) {
+    shiftsStore.fetchShiftsOnlyAction()
   }
 })
 
@@ -114,15 +113,15 @@ const handleSubmit = async () => {
     let res
     if (props.team && props.team.id) {
       // ✏️ Mode Edit: Gunakan PUT /api/v1/rotation-patterns/{id}
-      res = await erpStore.updateRotationPatternAction(props.team.id, payload)
+      res = await shiftsStore.updateRotationPatternAction(props.team.id, payload)
     } else {
       // ➕ Mode Tambah Baru: Gunakan POST /api/v1/shift-teams/{teamId}/patterns
-      const targetTeamId = erpStore.shiftTeams[0]?.id
+      const targetTeamId = shiftsStore.shiftTeams[0]?.id
       if (!targetTeamId) {
         showToastError('Belum ada Tim Shift terdaftar untuk mengaitkan pola rotasi!')
         return
       }
-      res = await erpStore.setTeamRotationPatternAction(targetTeamId, payload)
+      res = await shiftsStore.setTeamRotationPatternAction(targetTeamId, payload)
     }
 
     if (res && res.success) {

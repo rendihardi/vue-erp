@@ -1,14 +1,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useErpStore } from '../../store/erp'
+import { useShiftsStore } from '../../store/shifts'
 import BaseButton from '../../components/BaseButton.vue'
 import { ArrowLeftIcon } from '@lucide/vue'
-import * as api from '../../api'
 
 const route = useRoute()
 const router = useRouter()
-const erpStore = useErpStore()
+const shiftsStore = useShiftsStore()
 
 const shiftId = ref(route.params.id)
 const form = ref({
@@ -21,7 +20,7 @@ const form = ref({
 
 onMounted(async () => {
   try {
-    const res = await api.fetchShift(shiftId.value)
+    const res = await shiftsStore.fetchShift(shiftId.value)
     if (res && res.success && res.data) {
       const sf = res.data
       form.value = {
@@ -39,7 +38,7 @@ onMounted(async () => {
 
 const handleSave = async () => {
   try {
-    await erpStore.updateShiftAction(shiftId.value, form.value)
+    await shiftsStore.updateShiftAction(shiftId.value, form.value)
     router.push('/employees/shifts')
   } catch (err) {
     alert('Aksi gagal: ' + err.message)

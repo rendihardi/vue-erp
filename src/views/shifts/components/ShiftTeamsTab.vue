@@ -1,9 +1,9 @@
 <script setup>
-import { useErpStore } from '../../../store/erp'
+import { useShiftsStore } from '../../../store/shifts'
 import BaseButton from '../../../components/BaseButton.vue'
 import { PlusIcon, EditIcon, TrashIcon, RefreshCwIcon, ShieldCheckIcon, UsersIcon } from '@lucide/vue'
 
-const erpStore = useErpStore()
+const shiftsStore = useShiftsStore()
 
 const emit = defineEmits([
   'open-create-team',
@@ -30,7 +30,7 @@ const emit = defineEmits([
     <!-- Team Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
       <div
-        v-for="team in erpStore.shiftTeams"
+        v-for="team in shiftsStore.shiftTeams"
         :key="team.id"
         class="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col justify-between group"
       >
@@ -62,7 +62,7 @@ const emit = defineEmits([
       </div>
 
       <!-- Empty state -->
-      <div v-if="!erpStore.shiftTeams || !erpStore.shiftTeams.length"
+      <div v-if="!shiftsStore.shiftTeams || !shiftsStore.shiftTeams.length"
         class="col-span-3 p-10 text-center bg-white border border-dashed border-slate-200 rounded-2xl"
       >
         <ShieldCheckIcon class="size-8 text-slate-200 mx-auto mb-3" />

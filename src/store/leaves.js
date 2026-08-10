@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import * as api from '../api'
-import { useErpStore } from './erp'
+import { axiosInstance } from '../plugins/axios'
+import { handleError } from '../helpers/errorHelper'
+import { useEmployeeStore } from './employees'
 
 export const useLeavesStore = defineStore('leaves', () => {
   const leaves = ref([])
@@ -11,20 +12,40 @@ export const useLeavesStore = defineStore('leaves', () => {
   const allLeaveBalancesMeta = ref({ current_page: 1, last_page: 1, total: 0 })
   const myLeaves = ref([])
   const leaveCalendar = ref([])
+  const loading = ref(false)
+  const error = ref(null)
+  const success = ref(null)
+
+  async function fetchLeaveType(id) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get(`/leave-types/${id}`)
+      return response.data
+    } catch (err) {
+      error.value = handleError(err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
 
   async function loadInitialData(year = null) {
+    loading.value = true
+    error.value = null
     try {
-      const erpStore = useErpStore()
+      const employeeStore = useEmployeeStore()
       console.log('[API] Loading leave balances & requests...')
-      const [balRes, reqRes] = await Promise.allSettled([
-        api.fetchLeaveBalances(year),
-        api.fetchLeaveRequests()
-      ])
+      
+      const balPromise = axiosInstance.get('/leaves/balances', { params: year ? { year } : {} })
+      const reqPromise = axiosInstance.get('/leaves/requests')
 
-      const allEmployees = erpStore.employees || []
+      const [balRes, reqRes] = await Promise.allSettled([balPromise, reqPromise])
 
-      if (balRes.status === 'fulfilled' && balRes.value && balRes.value.success) {
-        const rawBal = Array.isArray(balRes.value.data) ? balRes.value.data : []
+      const allEmployees = employeeStore.employees || []
+
+      if (balRes.status === 'fulfilled' && balRes.value?.data?.success) {
+        const rawBal = Array.isArray(balRes.value.data.data) ? balRes.value.data.data : []
         leaveBalances.value = rawBal.map((lv, idx) => {
           const matchedEmp = allEmployees.find(e => 
             String(e.id) === String(lv.employee_id) || 
@@ -41,7 +62,7 @@ export const useLeavesStore = defineStore('leaves', () => {
             employeeId: resolvedNik,
             employeeName: resolvedEmpName,
             dept: resolvedDept,
-            name: leaveTypeName, // Nama Jenis Cuti (Cuti Tahunan, Sakit, Melahirkan, dll)
+            name: leaveTypeName,
             typeCode: lv.leave_type?.code || lv.code || 'CUTI',
             quotaAllocated: lv.allocated ?? lv.allocated_days ?? 12,
             quotaUsed: lv.used ?? lv.used_days ?? 0,
@@ -50,8 +71,8 @@ export const useLeavesStore = defineStore('leaves', () => {
         })
       }
 
-      if (reqRes.status === 'fulfilled' && reqRes.value && reqRes.value.success) {
-        const rawData = Array.isArray(reqRes.value.data?.data) ? reqRes.value.data.data : (Array.isArray(reqRes.value.data) ? reqRes.value.data : [])
+      if (reqRes.status === 'fulfilled' && reqRes.value?.data?.success) {
+        const rawData = Array.isArray(reqRes.value.data.data?.data) ? reqRes.value.data.data.data : (Array.isArray(reqRes.value.data.data) ? reqRes.value.data.data : [])
         leaves.value = rawData.map((lv, idx) => {
           const matchedEmp = allEmployees.find(e => 
             String(e.id) === String(lv.employee_id) || 
@@ -77,22 +98,19 @@ export const useLeavesStore = defineStore('leaves', () => {
           }
         })
       } else {
-        // Fallback to balances data for leaves list if requests endpoint returns empty
         leaves.value = leaveBalances.value
       }
 
       console.log('[API] Loading leave types list (paginated)...')
-      // API Contract 04: use /leave-types/paginated
-      const ltRes = await api.fetchLeaveTypesPaginated(1, 100)
-      if (ltRes && ltRes.success && ltRes.data) {
-        // paginated response: res.data.data (items) + res.data.meta
-        leaveTypes.value = Array.isArray(ltRes.data.data) ? ltRes.data.data : []
+      const ltRes = await axiosInstance.get('/leave-types/paginated', { params: { page: 1, per_page: 100 } })
+      if (ltRes.data?.success && ltRes.data?.data) {
+        leaveTypes.value = Array.isArray(ltRes.data.data.data) ? ltRes.data.data.data : []
       }
 
       console.log('[API] Loading team leave calendar...')
-      const calRes = await api.fetchLeaveCalendar()
-      if (calRes && calRes.success && Array.isArray(calRes.data)) {
-        leaveCalendar.value = calRes.data.map((item, idx) => {
+      const calRes = await axiosInstance.get('/leaves/calendar')
+      if (calRes.data?.success && Array.isArray(calRes.data?.data)) {
+        leaveCalendar.value = calRes.data.data.map((item, idx) => {
           const empName = item.employee_name || item.employee?.name || item.name || item.user_name || `Karyawan #${idx + 1}`
           const typeName = item.leave_type_name || item.leave_type?.name || (typeof item.leave_type === 'string' ? item.leave_type : null) || item.type || 'Cuti Tahunan'
           return {
@@ -106,86 +124,143 @@ export const useLeavesStore = defineStore('leaves', () => {
         })
       }
     } catch (err) {
+      error.value = handleError(err)
       console.error('[API Error] Fetching leaves data failed:', err.message)
+    } finally {
+      loading.value = false
     }
   }
 
   async function requestLeaveAction(formData) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.requestLeave(formData)
+      const response = await axiosInstance.post('/leaves/request', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      const res = response.data
       if (res && res.success) {
         await loadInitialData()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   // Leave Type CRUD
   async function createLeaveTypeAction(data) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.createLeaveType(data)
+      const response = await axiosInstance.post('/leave-types', data)
+      const res = response.data
       if (res && res.success) {
         await loadInitialData()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
+
   async function updateLeaveTypeAction(id, data) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.updateLeaveType(id, data)
+      const response = await axiosInstance.put(`/leave-types/${id}`, data)
+      const res = response.data
       if (res && res.success) {
         await loadInitialData()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
+
   async function deleteLeaveTypeAction(id) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.deleteLeaveType(id)
+      const response = await axiosInstance.delete(`/leave-types/${id}`)
+      const res = response.data
       if (res && res.success) {
         await loadInitialData()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   async function approveLeaveAction(leaveId, status, rejectionReason = null) {
+    loading.value = true
+    error.value = null
     try {
       console.log(`[API] Processing 1-Level HR Leave approval for ID: ${leaveId} to status: ${status}`)
-      const res = await api.approveLeave(leaveId, status, rejectionReason)
+      const response = await axiosInstance.post(`/leaves/approve/${leaveId}`, {
+        status,
+        rejection_reason: rejectionReason
+      })
+      const res = response.data
       if (res && res.success) {
         console.log('[API] Leave status updated successfully and quota deducted')
         await loadInitialData()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   async function adjustLeaveBalanceAction(data) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.adjustLeaveBalance(data)
+      const response = await axiosInstance.post('/leaves/balances/adjust', data)
+      const res = response.data
       if (res && res.success) {
         await loadInitialData()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   async function loadAllLeaveBalancesAction(page = 1, perPage = 15, params = {}) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.fetchLeaveAllBalances(page, perPage, params)
+      const response = await axiosInstance.get('/leaves/all-balances', {
+        params: { page, per_page: perPage, ...params }
+      })
+      const res = response.data
       if (res && res.success && res.data) {
         const rawItems = Array.isArray(res.data.data) ? res.data.data : (Array.isArray(res.data) ? res.data : [])
         const meta = res.data.meta || { current_page: page, last_page: 1, total: rawItems.length }
@@ -205,7 +280,10 @@ export const useLeavesStore = defineStore('leaves', () => {
       }
       return res
     } catch (err) {
+      error.value = handleError(err)
       console.warn('[API Warning] Fetching all leave balances failed:', err.message)
+    } finally {
+      loading.value = false
     }
   }
 
@@ -217,6 +295,10 @@ export const useLeavesStore = defineStore('leaves', () => {
     allLeaveBalancesMeta,
     myLeaves,
     leaveCalendar,
+    loading,
+    error,
+    success,
+    fetchLeaveType,
     loadInitialData,
     loadAllLeaveBalancesAction,
     requestLeaveAction,
@@ -227,3 +309,5 @@ export const useLeavesStore = defineStore('leaves', () => {
     adjustLeaveBalanceAction
   }
 })
+
+export const useLeaveStore = useLeavesStore

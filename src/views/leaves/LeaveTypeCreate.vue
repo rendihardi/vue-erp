@@ -1,12 +1,12 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useErpStore } from '../../store/erp'
+import { useLeavesStore } from '../../store/leaves'
 import BaseButton from '../../components/BaseButton.vue'
 import { ArrowLeftIcon } from '@lucide/vue'
 
 const router = useRouter()
-const erpStore = useErpStore()
+const leavesStore = useLeavesStore()
 
 const form = ref({
   name: '',
@@ -18,7 +18,7 @@ const form = ref({
 
 const handleSave = async () => {
   try {
-    await erpStore.createLeaveTypeAction(form.value)
+    await leavesStore.createLeaveTypeAction(form.value)
     router.push({ path: '/employees/leaves', query: { tab: 'leave-types' } })
   } catch (err) {
     alert('Aksi gagal: ' + err.message)

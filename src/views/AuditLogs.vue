@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useErpStore } from '../store/erp'
+import { useSharedServicesStore } from '../store/sharedServices'
 import BaseBadge from '../components/BaseBadge.vue'
 import BaseButton from '../components/BaseButton.vue'
 import BasePagination from '../components/BasePagination.vue'
@@ -13,7 +13,7 @@ import {
   FilterIcon
 } from '@lucide/vue'
 
-const erpStore = useErpStore()
+const sharedServicesStore = useSharedServicesStore()
 
 const searchModule = ref('')
 const searchUser = ref('')
@@ -24,8 +24,8 @@ const perPage = 10
 const filteredLogs = ref([])
 
 const filterLogs = () => {
-  if (!erpStore.auditLogs) return
-  filteredLogs.value = erpStore.auditLogs.filter(log => {
+  if (!sharedServicesStore.auditLogs) return
+  filteredLogs.value = sharedServicesStore.auditLogs.filter(log => {
     const matchModule = !searchModule.value || (log.module && log.module.toLowerCase().includes(searchModule.value.toLowerCase()))
     const matchUser = !searchUser.value || (log.user_name && log.user_name.toLowerCase().includes(searchUser.value.toLowerCase()))
     const matchAction = !selectedAction.value || (log.action && log.action.toLowerCase() === selectedAction.value.toLowerCase())
@@ -38,7 +38,7 @@ const handlePageChange = (page) => {
 }
 
 onMounted(async () => {
-  await erpStore.loadAuditLogs()
+  await sharedServicesStore.loadAuditLogs()
   filterLogs()
 })
 </script>

@@ -1,13 +1,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useErpStore } from '../../store/erp'
+import { useShiftsStore } from '../../store/shifts'
 import BaseButton from '../../components/BaseButton.vue'
 import { ArrowLeftIcon } from '@lucide/vue'
 
 const route = useRoute()
 const router = useRouter()
-const erpStore = useErpStore()
+const shiftsStore = useShiftsStore()
 
 const isEdit = ref(false)
 const shiftId = ref(null)
@@ -21,12 +21,12 @@ const form = ref({
 })
 
 onMounted(async () => {
-  await erpStore.fetchShiftsOnlyAction()
+  await shiftsStore.fetchShiftsOnlyAction()
   if (route.params.id) {
     isEdit.value = true
     shiftId.value = route.params.id
     
-    const sf = erpStore.shifts.find(s => s.id === shiftId.value)
+    const sf = shiftsStore.shifts.find(s => s.id === shiftId.value)
     if (sf) {
       form.value = {
         name: sf.name,
@@ -42,9 +42,9 @@ onMounted(async () => {
 const handleSave = async () => {
   try {
     if (isEdit.value) {
-      await erpStore.updateShiftAction(shiftId.value, form.value)
+      await shiftsStore.updateShiftAction(shiftId.value, form.value)
     } else {
-      await erpStore.createShiftAction(form.value)
+      await shiftsStore.createShiftAction(form.value)
     }
     router.push('/employees/shifts')
   } catch (err) {

@@ -1,15 +1,16 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
-import { useErpStore } from '../../../store/erp'
+import { useShiftsStore } from '../../../store/shifts'
+import { useEmployeeStore } from '../../../store/employees'
 import BaseBadge from '../../../components/BaseBadge.vue'
 import BaseButton from '../../../components/BaseButton.vue'
 import BasePagination from '../../../components/BasePagination.vue'
 import TableSkeleton from '../../../components/TableSkeleton.vue'
 import { SearchIcon, CalendarIcon, HistoryIcon, UserIcon, PlusIcon, RefreshCwIcon, ClockIcon, XIcon, SettingsIcon } from '@lucide/vue'
 import { showToastSuccess, showToastError, showToastWarning } from '../../../utils/toast'
-import * as api from '../../../api'
 
-const erpStore = useErpStore()
+const shiftsStore = useShiftsStore()
+const employeeStore = useEmployeeStore()
 
 // Filter State
 const searchQuery = ref('')
@@ -73,9 +74,9 @@ const handleSaveWorkScheduleMaster = async () => {
     isSubmittingMasterForm.value = true
     let res
     if (masterForm.value.id) {
-      res = await erpStore.updateWorkScheduleMasterAction(masterForm.value.id, masterForm.value)
+      res = await shiftsStore.updateWorkScheduleMasterAction(masterForm.value.id, masterForm.value)
     } else {
-      res = await erpStore.createWorkScheduleMasterAction(masterForm.value)
+      res = await shiftsStore.createWorkScheduleMasterAction(masterForm.value)
     }
 
     if (res && res.success) {
@@ -94,7 +95,7 @@ const handleSaveWorkScheduleMaster = async () => {
 const handleDeleteWorkScheduleMaster = async (id, name) => {
   if (!confirm(`Apakah Anda yakin ingin menghapus Master Pola Kerja "${name}"?`)) return
   try {
-    const res = await erpStore.deleteWorkScheduleMasterAction(id)
+    const res = await shiftsStore.deleteWorkScheduleMasterAction(id)
     if (res && res.success) {
       showToastSuccess(`🗑️ Master Pola Kerja "${name}" berhasil dihapus.`)
     } else {
@@ -124,7 +125,7 @@ const handleSaveMasterConfig = async () => {
       off_days: Array.isArray(globalOffDays.value) ? globalOffDays.value : [0, 6],
       notes: 'Update Master Aturan Hari Libur Perusahaan (off_days)'
     }
-    const res = await erpStore.assignWorkScheduleAction(payload)
+    const res = await shiftsStore.assignWorkScheduleAction(payload)
     if (res && res.success) {
       showToastSuccess('✅ Master Aturan Hari Libur Perusahaan berhasil diperbarui!')
       showMasterConfigModal.value = false
@@ -160,9 +161,9 @@ const fetchFixedRostersData = async (page = 1) => {
     if (startDateFilter.value) params.start_date = startDateFilter.value
     if (endDateFilter.value) params.end_date = endDateFilter.value
 
-    let res = await api.fetchWorkScheduleAssignments(page, 15, params)
+    let res = await shiftsStore.fetchWorkScheduleAssignments(page, 15, params)
     if (!res || !res.success) {
-      res = await api.fetchFixedRosters(page, 15, params)
+      res = await shiftsStore.fetchFixedRosters(page, 15, params)
     }
 
     if (res && res.success && res.data) {
@@ -217,7 +218,7 @@ const loadDailySchedule = async () => {
   try {
     isLoadingDaily.value = true
     const empId = selectedEmployee.value.id || selectedEmployee.value.employee_id
-    const res = await api.fetchEmployeeDailySchedule(empId, selectedDate.value)
+    const res = await shiftsStore.fetchEmployeeDailySchedule(empId, selectedDate.value)
     if (res && res.success) {
       dailySchedule.value = res.data
     } else {
@@ -238,7 +239,7 @@ const openHistoryModal = async (emp) => {
   try {
     isLoadingHistory.value = true
     const empId = emp.id || emp.employee_id
-    const res = await api.fetchEmployeeScheduleHistory(empId)
+    const res = await shiftsStore.fetchEmployeeScheduleHistory(empId)
     if (res && res.success && Array.isArray(res.data)) {
       historyList.value = res.data
     } else {
@@ -271,7 +272,7 @@ const handleAssignSubmit = async () => {
       notes: assignForm.value.notes || 'Penugasan Shift Tetap Kantor'
     }
 
-    const res = await erpStore.assignWorkScheduleAction(payload)
+    const res = await shiftsStore.assignWorkScheduleAction(payload)
     if (res && res.success) {
       showToastSuccess('✅ Shift Tetap Kantor berhasil diterapkan!')
       showAssignModal.value = false
@@ -288,15 +289,15 @@ const handleAssignSubmit = async () => {
 }
 
 onMounted(async () => {
-  if (!erpStore.employees || !erpStore.employees.length) {
-    erpStore.loadEmployeesOnly()
+  if (!employeeStore.employees || !employeeStore.employees.length) {
+    employeeStore.fetchEmployees()
   }
-  if (!erpStore.shifts || !erpStore.shifts.length) {
-    erpStore.fetchShiftsOnlyAction()
+  if (!shiftsStore.shifts || !shiftsStore.shifts.length) {
+    shiftsStore.fetchShiftsAction()
   }
   await Promise.allSettled([
     fetchFixedRostersData(1),
-    erpStore.fetchWorkScheduleMastersAction()
+    shiftsStore.fetchWorkScheduleMastersAction()
   ])
 })
 
@@ -376,7 +377,7 @@ const formatDate = (dateStr) => {
           class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-900 focus:outline-none focus:border-slate-800 focus:ring-1 focus:ring-slate-800"
         >
           <option value="">Semua Karyawan Kantor</option>
-          <option v-for="emp in erpStore.employees" :key="emp.id" :value="emp.id">
+          <option v-for="emp in employeeStore.employees" :key="emp.id" :value="emp.id">
             {{ emp.name }} ({{ emp.nik || 'EMP' }})
           </option>
         </select>
@@ -759,15 +760,15 @@ const formatDate = (dateStr) => {
           <div class="space-y-3">
             <h4 class="font-bold text-slate-800 text-xs flex items-center justify-between">
               <span>Daftar Master Pola Kerja</span>
-              <span class="text-[10px] font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">{{ erpStore.workScheduleMasters ? erpStore.workScheduleMasters.length : 0 }} Item</span>
+              <span class="text-[10px] font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">{{ shiftsStore.workScheduleMasters ? shiftsStore.workScheduleMasters.length : 0 }} Item</span>
             </h4>
 
-            <div v-if="!erpStore.workScheduleMasters || !erpStore.workScheduleMasters.length" class="p-6 text-center text-slate-400 italic text-xs border border-dashed border-slate-200 rounded-xl">
+            <div v-if="!shiftsStore.workScheduleMasters || !shiftsStore.workScheduleMasters.length" class="p-6 text-center text-slate-400 italic text-xs border border-dashed border-slate-200 rounded-xl">
               Belum ada data master pola kerja. Silakan buat baru di form samping.
             </div>
 
             <div v-else class="space-y-2 max-h-[380px] overflow-y-auto pr-1">
-              <div v-for="m in erpStore.workScheduleMasters" :key="m.id" class="p-3 bg-white border border-slate-200 rounded-xl hover:border-emerald-300 transition-colors shadow-sm flex flex-col justify-between gap-2">
+              <div v-for="m in shiftsStore.workScheduleMasters" :key="m.id" class="p-3 bg-white border border-slate-200 rounded-xl hover:border-emerald-300 transition-colors shadow-sm flex flex-col justify-between gap-2">
                 <div>
                   <div class="flex items-center justify-between gap-2">
                     <h5 class="font-bold text-slate-800 text-xs">{{ m.name }}</h5>

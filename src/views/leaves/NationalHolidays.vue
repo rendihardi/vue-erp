@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useErpStore } from '../../store/erp'
+import { useSharedServicesStore } from '../../store/sharedServices'
 import BaseBadge from '../../components/BaseBadge.vue'
 import BaseButton from '../../components/BaseButton.vue'
 import { 
@@ -13,7 +13,7 @@ import {
   CheckCircleIcon
 } from '@lucide/vue'
 
-const erpStore = useErpStore()
+const sharedServicesStore = useSharedServicesStore()
 
 const selectedYear = ref(new Date().getFullYear())
 const showModal = ref(false)
@@ -27,7 +27,7 @@ const form = ref({
 })
 
 const fetchHolidays = async () => {
-  await erpStore.loadNationalHolidays(selectedYear.value)
+  await sharedServicesStore.loadNationalHolidays(selectedYear.value)
 }
 
 const formatDateDisplay = (dateStr) => {
@@ -56,9 +56,9 @@ const openEditModal = (holiday) => {
 const handleSave = async () => {
   try {
     if (isEdit.value) {
-      await erpStore.updateNationalHolidayAction(editingId.value, form.value)
+      await sharedServicesStore.updateNationalHolidayAction(editingId.value, form.value)
     } else {
-      await erpStore.createNationalHolidayAction(form.value)
+      await sharedServicesStore.createNationalHolidayAction(form.value)
     }
     showModal.value = false
     await fetchHolidays()
@@ -70,7 +70,7 @@ const handleSave = async () => {
 const handleDelete = async (id) => {
   if (!confirm('Apakah Anda yakin ingin menghapus jadwal libur ini?')) return
   try {
-    await erpStore.deleteNationalHolidayAction(id)
+    await sharedServicesStore.deleteNationalHolidayAction(id)
     await fetchHolidays()
   } catch (err) {
     alert('Penghapusan gagal: ' + err.message)
@@ -78,7 +78,7 @@ const handleDelete = async (id) => {
 }
 
 onMounted(async () => {
-  await erpStore.loadNationalHolidays()
+  await sharedServicesStore.loadNationalHolidays()
 })
 </script>
 
@@ -130,7 +130,7 @@ onMounted(async () => {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 font-sans">
-            <tr v-for="holiday in erpStore.nationalHolidays" :key="holiday.id" class="hover:bg-slate-50/80 transition-colors">
+            <tr v-for="holiday in sharedServicesStore.nationalHolidays" :key="holiday.id" class="hover:bg-slate-50/80 transition-colors">
               <td class="py-3.5 px-4 font-mono font-bold text-slate-800 flex items-center gap-2">
                 <CalendarIcon class="size-3.5 text-emerald-600 shrink-0" />
                 <span>{{ formatDateDisplay(holiday.date) }}</span>
@@ -152,7 +152,7 @@ onMounted(async () => {
                 </div>
               </td>
             </tr>
-            <tr v-if="erpStore.nationalHolidays.length === 0">
+            <tr v-if="sharedServicesStore.nationalHolidays.length === 0">
               <td colspan="4" class="py-12 text-center text-slate-400 font-medium">
                 Belum ada data libur nasional tercatat untuk tahun {{ selectedYear }}.
               </td>

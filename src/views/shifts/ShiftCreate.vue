@@ -1,12 +1,12 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useErpStore } from '../../store/erp'
+import { useShiftsStore } from '../../store/shifts'
 import BaseButton from '../../components/BaseButton.vue'
 import { ArrowLeftIcon } from '@lucide/vue'
 
 const router = useRouter()
-const erpStore = useErpStore()
+const shiftsStore = useShiftsStore()
 
 const form = ref({
   name: '',
@@ -18,7 +18,7 @@ const form = ref({
 
 const handleSave = async () => {
   try {
-    await erpStore.createShiftAction(form.value)
+    await shiftsStore.createShiftAction(form.value)
     router.push('/employees/shifts')
   } catch (err) {
     alert('Aksi gagal: ' + err.message)

@@ -1,10 +1,10 @@
 <script setup>
 import { ref, watch } from 'vue'
-import { useErpStore } from '../../../store/erp'
+import { useShiftsStore } from '../../../store/shifts'
 import BaseButton from '../../../components/BaseButton.vue'
 import { showToastSuccess, showToastError, showToastWarning } from '../../../utils/toast'
 
-const erpStore = useErpStore()
+const shiftsStore = useShiftsStore()
 
 const props = defineProps({
   show: {
@@ -28,8 +28,8 @@ const isSubmitting = ref(false)
 
 watch([() => props.show, () => props.schedule], ([isShown, sc]) => {
   if (isShown && sc) {
-    if (!erpStore.shifts || !erpStore.shifts.length) {
-      erpStore.fetchShiftsOnlyAction()
+    if (!shiftsStore.shifts || !shiftsStore.shifts.length) {
+      shiftsStore.fetchShiftsOnlyAction()
     }
     form.value = {
       shift_id: sc.shift_id || sc.shift?.id || '',
@@ -60,9 +60,9 @@ const handleSubmit = async () => {
 
     let res
     if (props.schedule.id) {
-      res = await erpStore.adjustIndividualScheduleAction(props.schedule.id, payload)
+      res = await shiftsStore.adjustIndividualScheduleAction(props.schedule.id, payload)
     } else {
-      res = await erpStore.assignRosterAction({
+      res = await shiftsStore.assignRosterAction({
         shift_id: payload.shift_id,
         is_day_off: payload.is_day_off,
         start_date: props.schedule.date,
@@ -145,7 +145,7 @@ const handleSubmit = async () => {
             class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-medium text-slate-800 focus:outline-none focus:border-emerald-500"
           >
             <option value="">-- Pilih Shift Master --</option>
-            <option v-for="sf in erpStore.shifts" :key="sf.id" :value="sf.id">
+            <option v-for="sf in shiftsStore.shifts" :key="sf.id" :value="sf.id">
               {{ sf.name }} ({{ sf.code || 'SF' }}) &mdash; {{ sf.startTime || sf.start_time }} - {{ sf.endTime || sf.end_time }}
             </option>
           </select>

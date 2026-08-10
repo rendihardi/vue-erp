@@ -1,12 +1,11 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useErpStore } from '../../store/erp'
+import { useEmployeeStore } from '../../store/employees'
 import BaseBadge from '../../components/BaseBadge.vue'
 import BaseButton from '../../components/BaseButton.vue'
 import BasePagination from '../../components/BasePagination.vue'
 import TableSkeleton from '../../components/TableSkeleton.vue'
-import * as api from '../../api'
 import { 
   FileTextIcon,
   SearchIcon,
@@ -17,7 +16,7 @@ import {
 } from '@lucide/vue'
 
 const router = useRouter()
-const erpStore = useErpStore()
+const employeeStore = useEmployeeStore()
 
 const searchQ = ref('')
 const currentPage = ref(1)
@@ -27,24 +26,24 @@ const isLoading = ref(true)
 onMounted(async () => {
   try {
     isLoading.value = true
-    await Promise.allSettled([erpStore.loadContractsOnly(), erpStore.loadEmployeesOnly()])
+    await Promise.allSettled([employeeStore.loadContractsOnly(), employeeStore.loadEmployeesOnly()])
   } finally {
     isLoading.value = false
   }
 })
 
 const getEmployeeName = (empId) => {
-  const emp = erpStore.employees.find(e => e.id === empId)
+  const emp = employeeStore.employees.find(e => e.id === empId)
   return emp ? emp.name : 'Unknown Employee'
 }
 
 const getEmployeeNik = (empId) => {
-  const emp = erpStore.employees.find(e => e.id === empId)
+  const emp = employeeStore.employees.find(e => e.id === empId)
   return emp ? emp.nik : '—'
 }
 
 const getEmployeeAvatar = (empId) => {
-  const emp = erpStore.employees.find(e => e.id === empId)
+  const emp = employeeStore.employees.find(e => e.id === empId)
   return emp ? (emp.avatar || emp.avatar_url || null) : null
 }
 
@@ -63,7 +62,7 @@ const handleDownloadContract = async (c) => {
     return
   }
   try {
-    const res = await api.downloadContractFile(c.id)
+    const res = await employeeStore.downloadContractFile(c.id)
     if (res && res.data) {
       const blob = new Blob([res.data], { type: res.headers?.['content-type'] || 'application/pdf' })
       const url = window.URL.createObjectURL(blob)
@@ -80,9 +79,9 @@ const handleDownloadContract = async (c) => {
 }
 
 const filteredContracts = computed(() => {
-  if (!searchQ.value) return erpStore.contracts || []
+  if (!searchQ.value) return employeeStore.contracts || []
   const q = searchQ.value.toLowerCase()
-  return (erpStore.contracts || []).filter(c => 
+  return (employeeStore.contracts || []).filter(c => 
     c.contract_number?.toLowerCase().includes(q) ||
     c.contract_type?.toLowerCase().includes(q) ||
     getEmployeeName(c.employee_id).toLowerCase().includes(q) ||
@@ -101,7 +100,7 @@ const paginatedContracts = computed(() => {
 const handleDelete = async (id) => {
   if (!confirm('Apakah Anda yakin ingin menghapus kontrak ini?')) return
   try {
-    await erpStore.deleteContractAction(id)
+    await employeeStore.deleteContractAction(id)
   } catch (err) {
     alert('Gagal menghapus kontrak: ' + err.message)
   }

@@ -1,6 +1,6 @@
 <script setup>
-import { computed } from 'vue'
-import { useErpStore } from '../../store/erp'
+import { computed, onMounted } from 'vue'
+import { usePayrollStore } from '../../store/payroll'
 import BaseBadge from '../../components/BaseBadge.vue'
 import BaseButton from '../../components/BaseButton.vue'
 import { 
@@ -10,7 +10,7 @@ import {
   HelpCircleIcon
 } from '@lucide/vue'
 
-const erpStore = useErpStore()
+const payrollStore = usePayrollStore()
 
 const formatRupiah = (num) => {
   return new Intl.NumberFormat('id-ID', {
@@ -22,27 +22,23 @@ const formatRupiah = (num) => {
 
 // Calculate summary numbers
 const totalBasicSalary = computed(() => {
-  return erpStore.payrolls.reduce((sum, p) => sum + p.baseSalary, 0)
+  return payrollStore.payrolls.reduce((sum, p) => sum + p.baseSalary, 0)
 })
 
 const totalAllowances = computed(() => {
-  return erpStore.payrolls.reduce((sum, p) => sum + p.allowance, 0)
+  return payrollStore.payrolls.reduce((sum, p) => sum + p.allowance, 0)
 })
 
 const totalDeductions = computed(() => {
-  return erpStore.payrolls.reduce((sum, p) => sum + p.deductions, 0)
+  return payrollStore.payrolls.reduce((sum, p) => sum + p.deductions, 0)
 })
-
-import { onMounted } from 'vue'
-import { usePayrollStore } from '../../store/payroll'
-const payrollStore = usePayrollStore()
 
 onMounted(() => {
   payrollStore.loadInitialData()
 })
 
 const handleProcessPayout = (payrollId) => {
-  erpStore.updatePayrollStatus(payrollId, 'Paid')
+  payrollStore.updatePayrollStatus(payrollId, 'Paid')
 }
 </script>
 
@@ -98,7 +94,7 @@ const handleProcessPayout = (payrollId) => {
       <div class="p-6 rounded-2xl border border-indigo-100 bg-indigo-50/50 shadow-sm">
         <span class="block text-[10px] font-bold text-indigo-700 uppercase tracking-wider mb-1.5 font-sans">Total Transfer Bersih</span>
         <span class="block font-mono font-extrabold text-xl text-indigo-700 tabular-nums">
-          {{ formatRupiah(erpStore.totalPayrollAugust) }}
+          {{ formatRupiah(payrollStore.totalPayrollAugust) }}
         </span>
       </div>
     </div>
@@ -134,7 +130,7 @@ const handleProcessPayout = (payrollId) => {
           </thead>
           <tbody class="divide-y divide-slate-100">
             <tr 
-              v-for="pay in erpStore.payrolls" 
+              v-for="pay in payrollStore.payrolls" 
               :key="pay.id"
               class="hover:bg-slate-50/50"
             >

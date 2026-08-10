@@ -1,12 +1,12 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useErpStore } from '../../store/erp'
+import { useEmployeeStore } from '../../store/employees'
 import BaseButton from '../../components/BaseButton.vue'
 import { ArrowLeftIcon } from '@lucide/vue'
 
 const router = useRouter()
-const erpStore = useErpStore()
+const employeeStore = useEmployeeStore()
 
 const form = ref({
   employee_id: '',
@@ -31,7 +31,7 @@ const handleDocChange = (e) => {
 }
 
 onMounted(async () => {
-  await erpStore.loadEmployeesOnly()
+  await employeeStore.loadEmployeesOnly()
 })
 
 const handleSave = async () => {
@@ -55,7 +55,7 @@ const handleSave = async () => {
         payload.end_date = null
       }
     }
-    await erpStore.createContractAction(payload)
+    await employeeStore.createContractAction(payload)
     router.push('/employees/contracts')
   } catch (err) {
     alert('Gagal menambahkan kontrak: ' + err.message)
@@ -85,7 +85,7 @@ const handleSave = async () => {
           <label class="block font-bold text-slate-500 uppercase mb-1">Karyawan</label>
           <select v-model="form.employee_id" required class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:outline-none focus:border-emerald-500 text-xs">
             <option value="">-- Pilih Karyawan --</option>
-            <option v-for="emp in erpStore.employees" :key="emp.id" :value="emp.id">
+            <option v-for="emp in employeeStore.employees" :key="emp.id" :value="emp.id">
               {{ emp.name }} ({{ emp.nik }})
             </option>
           </select>

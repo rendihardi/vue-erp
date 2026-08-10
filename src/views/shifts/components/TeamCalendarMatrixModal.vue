@@ -3,12 +3,13 @@ import { ref, watch } from 'vue'
 import BaseBadge from '../../../components/BaseBadge.vue'
 import BaseButton from '../../../components/BaseButton.vue'
 import { CalendarDaysIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, UsersIcon } from '@lucide/vue'
-import * as api from '../../../api'
 
 import ScheduleAdjustmentModal from './ScheduleAdjustmentModal.vue'
-import { useErpStore } from '../../../store/erp'
+import { useShiftsStore } from '../../../store/shifts'
+import { useEmployeeStore } from '../../../store/employees'
 
-const erpStore = useErpStore()
+const shiftsStore = useShiftsStore()
+const employeeStore = useEmployeeStore()
 
 const props = defineProps({
   show: {
@@ -60,10 +61,10 @@ const loadTeamCalendar = async () => {
 
     let res = null
     // Call Roster Plan Calendar API (GET /api/v1/roster-plans/{id}/calendar)
-    res = await api.fetchRosterPlanCalendar(props.team.id)
+    res = await shiftsStore.fetchRosterPlanCalendar(props.team.id)
     if (!res || !res.success || !res.data) {
       // Fallback to Shift Team Calendar API (GET /api/v1/shift-teams/{id}/calendar)
-      res = await api.fetchShiftTeamCalendar(props.team.id, currentMonth.value)
+      res = await shiftsStore.fetchShiftTeamCalendar(props.team.id, currentMonth.value)
     }
 
     if (res && res.success && res.data) {
@@ -104,8 +105,8 @@ const buildFallbackData = () => {
     dates.push(`${currentMonth.value}-${dayStr}`)
   }
 
-  // Find actual team in erpStore.shiftTeams or fallback to erpStore.employees
-  const matchedTeam = erpStore.shiftTeams?.find(t => String(t.id) === String(props.team?.id))
+  // Find actual team in shiftsStore.shiftTeams or fallback to employeeStore.employees
+  const matchedTeam = shiftsStore.shiftTeams?.find(t => String(t.id) === String(props.team?.id))
   let members = []
   
   if (matchedTeam && Array.isArray(matchedTeam.activeMembers) && matchedTeam.activeMembers.length) {
@@ -116,7 +117,7 @@ const buildFallbackData = () => {
     members = props.team.members
   } else {
     // If team has no assigned members yet, use company employees list as default preview
-    members = erpStore.employees || [
+    members = employeeStore.employees || [
       { id: 'emp-1', nik: 'EMP-00045', name: 'Budi Santoso', dept: 'Operasional' },
       { id: 'emp-2', nik: 'EMP-00046', name: 'Siti Rahma', dept: 'Operasional' },
       { id: 'emp-3', nik: 'EMP-00047', name: 'Ahmad Yani', dept: 'Operasional' }

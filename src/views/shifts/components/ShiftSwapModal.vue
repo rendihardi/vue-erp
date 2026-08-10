@@ -1,9 +1,11 @@
 <script setup>
 import { ref, watch } from 'vue'
-import { useErpStore } from '../../../store/erp'
+import { useShiftsStore } from '../../../store/shifts'
+import { useEmployeeStore } from '../../../store/employees'
 import BaseButton from '../../../components/BaseButton.vue'
 
-const erpStore = useErpStore()
+const shiftsStore = useShiftsStore()
+const employeeStore = useEmployeeStore()
 
 const props = defineProps({
   show: {
@@ -22,7 +24,7 @@ const isSubmitting = ref(false)
 
 const loadAvailablePeers = async () => {
   if (!swapTargetDate.value) return
-  await erpStore.fetchAvailablePeersAction({
+  await shiftsStore.fetchAvailablePeersAction({
     date: swapTargetDate.value,
     search: peerSearchQ.value
   })
@@ -43,7 +45,7 @@ const handleSubmit = async () => {
   }
   try {
     isSubmitting.value = true
-    const res = await erpStore.requestShiftSwapAction({
+    const res = await shiftsStore.requestShiftSwapAction({
       requested_employee_id: swapTargetEmpId.value,
       requester_date: swapRequesterDate.value,
       requested_date: swapTargetDate.value
@@ -89,8 +91,8 @@ const handleSubmit = async () => {
         <div>
           <div class="flex items-center justify-between mb-1.5">
             <label class="font-bold text-slate-700 uppercase tracking-wider text-[10px]">Rekan Kerja Target &amp; Shift</label>
-            <span v-if="erpStore.availablePeers?.length" class="text-[9px] text-emerald-600 font-bold font-mono">
-              {{ erpStore.availablePeers.length }} rekan tersedia
+            <span v-if="shiftsStore.availablePeers?.length" class="text-[9px] text-emerald-600 font-bold font-mono">
+              {{ shiftsStore.availablePeers.length }} rekan tersedia
             </span>
           </div>
 
@@ -105,13 +107,13 @@ const handleSubmit = async () => {
 
           <select v-model="swapTargetEmpId" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-emerald-500 font-medium text-slate-800">
             <option value="">-- Pilih Rekan Kerja --</option>
-            <template v-if="erpStore.availablePeers?.length">
-              <option v-for="peer in erpStore.availablePeers" :key="peer.employee_id" :value="peer.employee_id">
+            <template v-if="shiftsStore.availablePeers?.length">
+              <option v-for="peer in shiftsStore.availablePeers" :key="peer.employee_id" :value="peer.employee_id">
                 {{ peer.employee_name }} ({{ peer.nik }}) — {{ peer.shift ? `${peer.shift.name} (${peer.shift.start_time}-${peer.shift.end_time})` : 'No Shift' }}
               </option>
             </template>
             <template v-else>
-              <option v-for="emp in erpStore.employees" :key="emp.id" :value="emp.id">
+              <option v-for="emp in employeeStore.employees" :key="emp.id" :value="emp.id">
                 {{ emp.name }} ({{ emp.dept }})
               </option>
             </template>

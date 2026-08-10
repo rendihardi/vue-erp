@@ -1,7 +1,8 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useErpStore } from '../../store/erp'
+import { useEmployeeStore } from '../../store/employees'
+import { useSharedServicesStore } from '../../store/sharedServices'
 import BaseBadge from '../../components/BaseBadge.vue'
 import BaseButton from '../../components/BaseButton.vue'
 import { 
@@ -18,7 +19,8 @@ import {
 
 const route = useRoute()
 const router = useRouter()
-const erpStore = useErpStore()
+const employeeStore = useEmployeeStore()
+const sharedServicesStore = useSharedServicesStore()
 
 const employeeId = ref(route.params.id)
 const employee = ref(null)
@@ -32,19 +34,19 @@ const photoFile = ref(null)
 const uploadPreview = ref(null)
 
 const fetchEmployeeDetails = async () => {
-  const emp = erpStore.employees.find(e => String(e.id) === String(employeeId.value))
+  const emp = employeeStore.employees.find(e => String(e.id) === String(employeeId.value))
   if (emp) {
     employee.value = emp
   }
 
   // Load Location History
-  const history = await erpStore.loadLocationHistory(employeeId.value)
+  const history = await sharedServicesStore.loadLocationHistory(employeeId.value)
   if (history) {
     locationHistory.value = history
   }
 
   // Load Face Profile & Consent
-  const face = await erpStore.loadFaceProfile(employeeId.value)
+  const face = await sharedServicesStore.loadFaceProfile(employeeId.value)
   if (face) {
     faceProfile.value = face
   }
@@ -74,7 +76,7 @@ const handleRegisterFace = async () => {
     formData.append('photo', photoFile.value)
     formData.append('consent_given', 'true')
 
-    await erpStore.registerFaceProfileAction(employeeId.value, formData)
+    await sharedServicesStore.registerFaceProfileAction(employeeId.value, formData)
     alert('Registrasi biometrik wajah & UU PDP consent berhasil disimpan.')
     photoFile.value = null
     uploadPreview.value = null
@@ -90,7 +92,7 @@ const handleRevokeFace = async () => {
   if (!confirm('Apakah Anda yakin ingin menghapus data biometrik wajah karyawan ini (Hak Revoke Consent UU PDP)?')) return
   try {
     loadingFace.value = true
-    await erpStore.revokeFaceProfileAction(employeeId.value)
+    await sharedServicesStore.revokeFaceProfileAction(employeeId.value)
     alert('Data biometrik wajah telah dihapus dari server.')
     await fetchEmployeeDetails()
   } catch (err) {
@@ -101,7 +103,7 @@ const handleRevokeFace = async () => {
 }
 
 onMounted(async () => {
-  await erpStore.loadEmployeesOnly()
+  await employeeStore.loadEmployeesOnly()
   await fetchEmployeeDetails()
 })
 </script>

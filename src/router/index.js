@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Dashboard from '../views/Dashboard.vue'
-import { useErpStore } from '../store/erp'
+import { useAuthStore } from '../store/auth'
 
 const routes = [
   {
@@ -163,11 +163,11 @@ const router = createRouter({
 
 // Navigation Guard for authentication checks
 router.beforeEach((to, from, next) => {
-  const erpStore = useErpStore()
+  const authStore = useAuthStore()
   
-  if (to.name !== 'Login' && !erpStore.isAuthenticated) {
+  if (to.name !== 'Login' && !authStore.isAuthenticated) {
     next({ name: 'Login' })
-  } else if (to.name === 'Login' && erpStore.isAuthenticated) {
+  } else if (to.name === 'Login' && authStore.isAuthenticated) {
     next({ name: 'Dashboard' })
   } else {
     next()

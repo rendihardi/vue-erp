@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useErpStore } from '../store/erp'
+import { useAuthStore } from '../store/auth'
 import { 
   BellIcon, 
   SearchIcon, 
@@ -13,7 +13,7 @@ import {
 
 const route = useRoute()
 const router = useRouter()
-const erpStore = useErpStore()
+const authStore = useAuthStore()
 
 const pageTitle = computed(() => {
   if (route.path === '/employees') return 'Employee Management'
@@ -29,7 +29,7 @@ const todayDate = computed(() => {
 })
 
 const handleLogout = () => {
-  erpStore.logoutAction()
+  authStore.logoutAction()
   router.push({ name: 'Login' })
 }
 </script>

@@ -1,14 +1,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useErpStore } from '../../store/erp'
+import { useEmployeeStore } from '../../store/employees'
 import BaseButton from '../../components/BaseButton.vue'
 import { ArrowLeftIcon } from '@lucide/vue'
-import * as api from '../../api'
 
 const route = useRoute()
 const router = useRouter()
-const erpStore = useErpStore()
+const employeeStore = useEmployeeStore()
 
 const departmentId = ref(route.params.id)
 const form = ref({
@@ -20,7 +19,7 @@ const form = ref({
 
 onMounted(async () => {
   try {
-    const res = await api.fetchDepartment(departmentId.value)
+    const res = await employeeStore.fetchDepartment(departmentId.value)
     if (res && res.success && res.data) {
       form.value = {
         name: res.data.name,
@@ -36,7 +35,7 @@ onMounted(async () => {
 
 const handleSave = async () => {
   try {
-    await erpStore.updateDepartmentAction(departmentId.value, form.value)
+    await employeeStore.updateDepartmentAction(departmentId.value, form.value)
     router.push({ path: '/employees', query: { tab: 'departments' } })
   } catch (err) {
     alert('Aksi gagal: ' + err.message)

@@ -1,11 +1,11 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useErpStore } from '../store/erp'
+import { useAuthStore } from '../store/auth'
 import { ShieldCheckIcon, AlertCircleIcon, KeyIcon } from '@lucide/vue'
 
 const router = useRouter()
-const erpStore = useErpStore()
+const authStore = useAuthStore()
 
 const email = ref('')
 const password = ref('')
@@ -22,7 +22,7 @@ const handleLogin = async () => {
   errorMsg.value = ''
 
   try {
-    const result = await erpStore.loginAction(email.value, password.value)
+    const result = await authStore.loginAction(email.value, password.value)
     if (result.success) {
       router.push({ name: 'Dashboard' })
     } else {

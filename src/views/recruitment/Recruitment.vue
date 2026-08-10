@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import { useErpStore } from '../../store/erp'
+import { useRecruitmentStore } from '../../store/recruitment'
 import BaseBadge from '../../components/BaseBadge.vue'
 import BaseButton from '../../components/BaseButton.vue'
 import { 
@@ -12,13 +12,13 @@ import {
   InfoIcon
 } from '@lucide/vue'
 
-const erpStore = useErpStore()
+const recruitmentStore = useRecruitmentStore()
 
 const activeTab = ref('candidates') // 'jobs' or 'candidates'
 const successMessage = ref('')
 
 const handleConvert = async (candidateId) => {
-  const result = await erpStore.convertCandidateAction(candidateId, '019fd564-a0ca-7f2e-bf73-670a59fa876a')
+  const result = await recruitmentStore.convertCandidateAction(candidateId, '019fd564-a0ca-7f2e-bf73-670a59fa876a')
   if (result.success) {
     successMessage.value = `Sukses Onboarding! ${result.name} telah berhasil di-onboard menjadi karyawan aktif dengan NIK baru: ${result.nik}.`
     setTimeout(() => {
@@ -105,13 +105,13 @@ const handleConvert = async (candidateId) => {
         <div class="text-center p-2 border-l border-slate-100">
           <span class="block text-[9px] font-bold text-emerald-600 uppercase">Hired</span>
           <span class="block font-display font-bold text-lg text-emerald-600">
-            {{ erpStore.candidates.filter(c => c.status === 'hired').length }}
+            {{ recruitmentStore.candidates.filter(c => c.status === 'hired').length }}
           </span>
         </div>
         <div class="text-center p-2 border-l border-slate-100">
           <span class="block text-[9px] font-bold text-slate-400 uppercase">Onboarded</span>
           <span class="block font-display font-bold text-lg text-slate-500">
-            {{ erpStore.candidates.filter(c => c.status === 'onboarded').length }}
+            {{ recruitmentStore.candidates.filter(c => c.status === 'onboarded').length }}
           </span>
         </div>
       </section>
@@ -132,7 +132,7 @@ const handleConvert = async (candidateId) => {
             </thead>
             <tbody class="divide-y divide-slate-100">
               <tr 
-                v-for="cand in erpStore.candidates" 
+                v-for="cand in recruitmentStore.candidates" 
                 :key="cand.id"
                 class="hover:bg-slate-50/50"
               >
@@ -189,7 +189,7 @@ const handleConvert = async (candidateId) => {
     <div v-if="activeTab === 'jobs'" class="space-y-6">
       <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div 
-          v-for="job in erpStore.jobs" 
+          v-for="job in recruitmentStore.jobs" 
           :key="job.id"
           class="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col justify-between"
         >

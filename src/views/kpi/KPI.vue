@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import { useErpStore } from '../../store/erp'
+import { usePerformanceStore } from '../../store/performance'
 import BaseBadge from '../../components/BaseBadge.vue'
 import BaseButton from '../../components/BaseButton.vue'
 import { 
@@ -11,7 +11,7 @@ import {
   UserCheckIcon
 } from '@lucide/vue'
 
-const erpStore = useErpStore()
+const performanceStore = usePerformanceStore()
 
 // State for rating modal/inline form
 const activeRatingReviewId = ref(null)
@@ -30,12 +30,12 @@ const handleCancelRating = () => {
 
 const handleSubmitRating = async (reviewId) => {
   if (!tempManagerScore.value) return
-  await erpStore.rateManagerAction(reviewId, tempManagerScore.value, tempManagerNotes.value)
+  await performanceStore.rateManagerAction(reviewId, tempManagerScore.value, tempManagerNotes.value)
   activeRatingReviewId.value = null
 }
 
 const handleReleaseScorecard = async (reviewId) => {
-  await erpStore.releaseScorecardAction(reviewId)
+  await performanceStore.releaseScorecardAction(reviewId)
 }
 </script>
 
@@ -134,7 +134,7 @@ const handleReleaseScorecard = async (reviewId) => {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <template v-for="rev in erpStore.reviews" :key="rev.id">
+            <template v-for="rev in performanceStore.reviews" :key="rev.id">
               <tr class="hover:bg-slate-50/50">
                 <td class="py-3.5">
                   <span class="block font-bold text-slate-700">{{ rev.name }}</span>

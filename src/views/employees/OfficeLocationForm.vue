@@ -1,13 +1,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useErpStore } from '../../store/erp'
+import { useEmployeeStore } from '../../store/employees'
 import BaseButton from '../../components/BaseButton.vue'
 import { ArrowLeftIcon, MapPinIcon, ShieldCheckIcon } from '@lucide/vue'
 
 const route = useRoute()
 const router = useRouter()
-const erpStore = useErpStore()
+const employeeStore = useEmployeeStore()
 
 const isEdit = ref(false)
 const locationId = ref(null)
@@ -22,12 +22,12 @@ const form = ref({
 })
 
 onMounted(async () => {
-  await erpStore.loadOfficeLocationsOnly()
+  await employeeStore.loadOfficeLocationsOnly()
   if (route.params.id) {
     isEdit.value = true
     locationId.value = route.params.id
     
-    const loc = erpStore.officeLocations.find(l => String(l.id) === String(locationId.value))
+    const loc = employeeStore.officeLocations.find(l => String(l.id) === String(locationId.value))
     if (loc) {
       form.value = {
         name: loc.name || '',
@@ -44,9 +44,9 @@ onMounted(async () => {
 const handleSave = async () => {
   try {
     if (isEdit.value) {
-      await erpStore.updateOfficeLocationAction(locationId.value, form.value)
+      await employeeStore.updateOfficeLocationAction(locationId.value, form.value)
     } else {
-      await erpStore.createOfficeLocationAction(form.value)
+      await employeeStore.createOfficeLocationAction(form.value)
     }
     router.push({ path: '/employees', query: { tab: 'locations' } })
   } catch (err) {

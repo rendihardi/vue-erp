@@ -1,9 +1,9 @@
 <script setup>
-import { useErpStore } from '../../../store/erp'
+import { useShiftsStore } from '../../../store/shifts'
 import BaseBadge from '../../../components/BaseBadge.vue'
 import BaseButton from '../../../components/BaseButton.vue'
 
-const erpStore = useErpStore()
+const shiftsStore = useShiftsStore()
 
 const props = defineProps({
   show: {
@@ -16,7 +16,7 @@ const emit = defineEmits(['close', 'publish'])
 </script>
 
 <template>
-  <div v-if="show && erpStore.activeValidationReport" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 font-sans">
+  <div v-if="show && shiftsStore.activeValidationReport" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 font-sans">
     <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl border border-slate-100 max-h-[90vh] overflow-y-auto">
       <div class="flex items-start justify-between mb-4">
         <div>
@@ -25,8 +25,8 @@ const emit = defineEmits(['close', 'publish'])
           </div>
           <h2 class="font-display font-black text-lg text-slate-800">Laporan Validasi Kelengkapan Roster</h2>
         </div>
-        <BaseBadge :variant="erpStore.activeValidationReport.can_publish ? 'success' : 'danger'">
-          {{ erpStore.activeValidationReport.can_publish ? 'Siap Dipublikasikan' : 'Terdapat Isu Kritis' }}
+        <BaseBadge :variant="shiftsStore.activeValidationReport.can_publish ? 'success' : 'danger'">
+          {{ shiftsStore.activeValidationReport.can_publish ? 'Siap Dipublikasikan' : 'Terdapat Isu Kritis' }}
         </BaseBadge>
       </div>
 
@@ -35,25 +35,25 @@ const emit = defineEmits(['close', 'publish'])
         <div>
           <span class="block text-[9px] font-bold text-slate-400 uppercase">Coverage Rate</span>
           <span class="font-mono font-black text-lg text-emerald-600">
-            {{ erpStore.activeValidationReport.coverage_percentage }}%
+            {{ shiftsStore.activeValidationReport.coverage_percentage }}%
           </span>
         </div>
         <div>
           <span class="block text-[9px] font-bold text-slate-400 uppercase">Jadwal Kosong</span>
           <span class="font-mono font-black text-lg text-amber-600">
-            {{ erpStore.activeValidationReport.summary?.missing_schedules || 0 }}
+            {{ shiftsStore.activeValidationReport.summary?.missing_schedules || 0 }}
           </span>
         </div>
         <div>
           <span class="block text-[9px] font-bold text-slate-400 uppercase">Jeda Istirahat</span>
           <span class="font-mono font-black text-lg text-rose-600">
-            {{ erpStore.activeValidationReport.summary?.rest_time_violations || 0 }}
+            {{ shiftsStore.activeValidationReport.summary?.rest_time_violations || 0 }}
           </span>
         </div>
         <div>
           <span class="block text-[9px] font-bold text-slate-400 uppercase">Bentrok Cuti</span>
           <span class="font-mono font-black text-lg text-indigo-600">
-            {{ erpStore.activeValidationReport.summary?.leave_conflicts || 0 }}
+            {{ shiftsStore.activeValidationReport.summary?.leave_conflicts || 0 }}
           </span>
         </div>
       </div>
@@ -61,12 +61,12 @@ const emit = defineEmits(['close', 'publish'])
       <!-- Warning Items Matrix -->
       <div class="mb-6">
         <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider mb-2">
-          Rincian Warning &amp; Isu Pelanggaran ({{ erpStore.activeValidationReport.warnings?.length || 0 }})
+          Rincian Warning &amp; Isu Pelanggaran ({{ shiftsStore.activeValidationReport.warnings?.length || 0 }})
         </h3>
 
         <div class="space-y-2.5 max-h-60 overflow-y-auto border border-slate-100 rounded-xl p-2 divide-y divide-slate-100">
           <div
-            v-for="(warn, idx) in erpStore.activeValidationReport.warnings"
+            v-for="(warn, idx) in shiftsStore.activeValidationReport.warnings"
             :key="idx"
             class="pt-2 first:pt-0 flex items-start gap-3 text-xs"
           >
@@ -88,7 +88,7 @@ const emit = defineEmits(['close', 'publish'])
             </div>
           </div>
 
-          <div v-if="!erpStore.activeValidationReport.warnings?.length" class="p-6 text-center text-emerald-600 font-semibold text-xs">
+          <div v-if="!shiftsStore.activeValidationReport.warnings?.length" class="p-6 text-center text-emerald-600 font-semibold text-xs">
             🎉 Tidak ditemukan warning atau konflik jadwal! Roster sempurna 100%.
           </div>
         </div>
@@ -97,9 +97,9 @@ const emit = defineEmits(['close', 'publish'])
       <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
         <BaseButton variant="secondary" @click="emit('close')">Tutup Report</BaseButton>
         <BaseButton
-          v-if="erpStore.activeValidationReport.can_publish"
+          v-if="shiftsStore.activeValidationReport.can_publish"
           variant="primary-emerald"
-          @click="emit('publish', erpStore.activeValidationReport.roster_plan_id)"
+          @click="emit('publish', shiftsStore.activeValidationReport.roster_plan_id)"
         >
           🚀 Publikasikan Roster Sekarang
         </BaseButton>

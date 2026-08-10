@@ -1,14 +1,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useErpStore } from '../../store/erp'
+import { useLeavesStore } from '../../store/leaves'
 import BaseButton from '../../components/BaseButton.vue'
 import { ArrowLeftIcon } from '@lucide/vue'
-import * as api from '../../api'
 
 const route = useRoute()
 const router = useRouter()
-const erpStore = useErpStore()
+const leavesStore = useLeavesStore()
 
 const leaveTypeId = ref(route.params.id)
 const form = ref({
@@ -21,7 +20,7 @@ const form = ref({
 
 onMounted(async () => {
   try {
-    const res = await api.fetchLeaveType(leaveTypeId.value)
+    const res = await leavesStore.fetchLeaveType(leaveTypeId.value)
     if (res && res.success && res.data) {
       const lt = res.data
       form.value = {
@@ -39,7 +38,7 @@ onMounted(async () => {
 
 const handleSave = async () => {
   try {
-    await erpStore.updateLeaveTypeAction(leaveTypeId.value, form.value)
+    await leavesStore.updateLeaveTypeAction(leaveTypeId.value, form.value)
     router.push({ path: '/employees/leaves', query: { tab: 'leave-types' } })
   } catch (err) {
     alert('Aksi gagal: ' + err.message)

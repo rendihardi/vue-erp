@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import * as api from '../api'
+import { axiosInstance } from '../plugins/axios'
+import { handleError } from '../helpers/errorHelper'
 
 export const useShiftsStore = defineStore('shifts', () => {
   const shifts = ref([])
@@ -12,7 +13,6 @@ export const useShiftsStore = defineStore('shifts', () => {
   const myShiftSwaps = ref([])
   const shiftTeams = ref([])
   
-  // Enterprise Roster Architecture State (API Contract 03 §2)
   const rosterPlans = ref([])
   const rosterPlansPaginated = ref({ data: [], current_page: 1, last_page: 1, total: 0 })
   const activeValidationReport = ref(null)
@@ -21,22 +21,151 @@ export const useShiftsStore = defineStore('shifts', () => {
   const rotationPatternsPaginated = ref({ data: [], current_page: 1, last_page: 1, total: 0 })
   const workScheduleMasters = ref([])
 
-  // Computed Rotation Patterns (Pure DB Data Directly from GET /api/v1/rotation-patterns)
+  const loading = ref(false)
+  const error = ref(null)
+  const success = ref(null)
+
   const rotationPatterns = computed(() => {
     return Array.isArray(customRotationPatterns.value) ? customRotationPatterns.value : []
   })
 
-  // --- ON-DEMAND LAZY FETCHING FUNCTIONS (Prevents heavy simultaneous HTTP requests) ---
+  // Single Item Fetch Actions
+  async function fetchShift(id) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get(`/shifts/${id}`)
+      return response.data
+    } catch (err) {
+      error.value = handleError(err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
 
+  async function fetchRosterPlanCalendar(planId) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get(`/roster-plans/${planId}/calendar`)
+      return response.data
+    } catch (err) {
+      console.warn(`[API Fallback] /roster-plans/${planId}/calendar fallback:`, err.message)
+      return { success: false, data: null }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchShiftTeamCalendar(teamId, month = null) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get(`/shift-teams/${teamId}/calendar`, {
+        params: month ? { month } : {}
+      })
+      return response.data
+    } catch (err) {
+      console.warn(`[API Fallback] /shift-teams/${teamId}/calendar fallback:`, err.message)
+      return { success: false, data: null }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchAvailableShiftTeamEmployees(search = '', page = 1, perPage = 100) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get('/shift-teams/available-employees', {
+        params: { search, page, per_page: perPage }
+      })
+      return response.data
+    } catch (err) {
+      console.warn('[API Fallback] /shift-teams/available-employees fallback:', err.message)
+      return { success: false, data: [] }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchFixedRosters(page = 1, perPage = 15, params = {}) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get('/rosters', {
+        params: { page, per_page: perPage, source: 'fixed', ...params }
+      })
+      return response.data
+    } catch (err) {
+      error.value = handleError(err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchWorkScheduleAssignments(page = 1, perPage = 15, params = {}) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get('/work-schedules/assignments', {
+        params: { page, per_page: perPage, schedule_type: 'fixed', ...params }
+      })
+      return response.data
+    } catch (err) {
+      error.value = handleError(err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchEmployeeDailySchedule(employeeId, date) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get(`/work-schedules/employees/${employeeId}/schedule`, {
+        params: { date }
+      })
+      return response.data
+    } catch (err) {
+      error.value = handleError(err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchEmployeeScheduleHistory(employeeId) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get(`/work-schedules/employees/${employeeId}/history`)
+      return response.data
+    } catch (err) {
+      error.value = handleError(err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // --- ON-DEMAND LAZY FETCHING FUNCTIONS ---
   async function fetchShiftsOnlyAction() {
+    loading.value = true
+    error.value = null
     try {
       console.log('[Lazy Load] Fetching Master Shifts...')
       let sfRes
       try {
-        sfRes = await api.fetchShiftsPaginated(1, 100)
+        const response = await axiosInstance.get('/shifts/paginated', { params: { page: 1, per_page: 100 } })
+        sfRes = response.data
       } catch (err) {
         if (err.response && err.response.status === 404) {
-          sfRes = await api.fetchShifts()
+          const response = await axiosInstance.get('/shifts')
+          sfRes = response.data
         } else {
           throw err
         }
@@ -59,14 +188,30 @@ export const useShiftsStore = defineStore('shifts', () => {
         }
       }
     } catch (err) {
+      error.value = handleError(err)
       console.warn('[API Warning] Fetching shifts failed:', err.message)
+    } finally {
+      loading.value = false
     }
   }
 
   async function fetchShiftTeamsOnlyAction() {
+    loading.value = true
+    error.value = null
     try {
       console.log('[Lazy Load] Fetching Shift Teams...')
-      const teamRes = await api.fetchShiftTeamsPaginated(1, 100)
+      let teamRes
+      try {
+        const response = await axiosInstance.get('/shift-teams/paginated', { params: { page: 1, per_page: 100 } })
+        teamRes = response.data
+      } catch (err) {
+        if (err.response && err.response.status === 404) {
+          const response = await axiosInstance.get('/shift-teams')
+          teamRes = response.data
+        } else {
+          throw err
+        }
+      }
       if (teamRes && teamRes.success && teamRes.data) {
         const rawTeams = Array.isArray(teamRes.data.data) ? teamRes.data.data : (Array.isArray(teamRes.data) ? teamRes.data : [])
         shiftTeams.value = rawTeams.map(t => {
@@ -82,14 +227,20 @@ export const useShiftsStore = defineStore('shifts', () => {
         })
       }
     } catch (err) {
+      error.value = handleError(err)
       console.warn('[API Warning] Fetching shift teams failed:', err.message)
+    } finally {
+      loading.value = false
     }
   }
 
   async function fetchRosterPlansOnlyAction() {
+    loading.value = true
+    error.value = null
     try {
       console.log('[Lazy Load] Fetching Roster Plans...')
-      const rpRes = await api.fetchRosterPlansPaginated(1, 9)
+      const response = await axiosInstance.get('/roster-plans', { params: { page: 1, per_page: 9 } })
+      const rpRes = response.data
       if (rpRes && rpRes.success && rpRes.data) {
         const items = Array.isArray(rpRes.data.data) ? rpRes.data.data : []
         rosterPlans.value = items.map(rp => ({
@@ -110,14 +261,20 @@ export const useShiftsStore = defineStore('shifts', () => {
         }
       }
     } catch (err) {
+      error.value = handleError(err)
       console.warn('[API Warning] Fetching Roster Plans failed:', err.message)
+    } finally {
+      loading.value = false
     }
   }
 
   async function fetchShiftSwapsOnlyAction() {
+    loading.value = true
+    error.value = null
     try {
       console.log('[Lazy Load] Fetching Shift Swaps...')
-      const swapRes = await api.fetchShiftSwaps()
+      const response = await axiosInstance.get('/shift-swaps')
+      const swapRes = response.data
       if (swapRes && swapRes.success) {
         const swapData = Array.isArray(swapRes.data) ? swapRes.data : (swapRes.data?.data || [])
         shiftSwaps.value = swapData.map(sw => ({
@@ -133,276 +290,616 @@ export const useShiftsStore = defineStore('shifts', () => {
         }))
       }
     } catch (err) {
+      error.value = handleError(err)
       console.warn('[API Warning] Fetching shift swaps failed:', err.message)
+    } finally {
+      loading.value = false
     }
   }
 
   async function loadInitialData() {
-    // Only load lightweight initial active tab data if needed
     await fetchShiftsOnlyAction()
   }
 
   async function assignWorkScheduleAction(data) {
-    const res = await api.assignWorkSchedule(data)
-    return res
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.post('/work-schedules/assign', data)
+      return response.data
+    } catch (err) {
+      error.value = handleError(err)
+      return { success: false, message: error.value }
+    } finally {
+      loading.value = false
+    }
   }
 
   async function assignRosterAction(data) {
-    const res = await api.assignRoster(data)
-    return res
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.post('/rosters/assign', data)
+      return response.data
+    } catch (err) {
+      error.value = handleError(err)
+      return { success: false, message: error.value }
+    } finally {
+      loading.value = false
+    }
   }
 
   async function adjustIndividualScheduleAction(scheduleId, data) {
+    loading.value = true
+    error.value = null
     try {
       console.log(`[API] Adjusting individual schedule ID ${scheduleId}...`)
-      const res = await api.adjustIndividualSchedule(scheduleId, data)
-      return res
+      let response
+      try {
+        response = await axiosInstance.put(`/rosters/schedules/${scheduleId}`, data)
+      } catch (err) {
+        if (err.response && err.response.status === 404) {
+          response = await axiosInstance.put(`/shift-schedules/${scheduleId}`, data)
+        } else {
+          throw err
+        }
+      }
+      return response.data
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      error.value = handleError(err)
+      return { success: false, message: error.value }
+    } finally {
+      loading.value = false
     }
   }
 
   async function requestShiftSwapAction(data) {
-    const res = await api.requestShiftSwap(data)
-    if (res && res.success) {
-      await fetchShiftSwapsOnlyAction()
-    }
-    return res
-  }
-
-  async function respondShiftSwapPeerAction(swapId, responseType, rejectionReason = null) {
-    const res = await api.respondShiftSwapPeer(swapId, responseType, rejectionReason)
-    if (res && res.success) {
-      await fetchShiftSwapsOnlyAction()
-    }
-    return res
-  }
-
-  async function approveShiftSwapAction(swapId, status, rejectionReason = null) {
-    console.log(`[API] HR Approval for shift swap ID: ${swapId} to status: ${status}`)
-    const res = await api.approveShiftSwap(swapId, status, rejectionReason)
-    if (res && res.success) {
-      console.log('[API] Shift swap status updated successfully by HR')
-      await fetchShiftSwapsOnlyAction()
-    }
-    return res
-  }
-
-  async function loadRostersAction(page = 1, perPage = 10) {
-    const res = await api.fetchRosters(page, perPage)
-    if (res && res.success && res.data) {
-      rosters.value = res.data
-    }
-  }
-
-  // API Contract 03 §2.2: Generate Roster Massal Otomatis
-  async function generateTeamRosterAction(teamId, startDate, endDate) {
-    console.log(`[API] Generating roster for team ${teamId} from ${startDate} to ${endDate}...`)
-    const res = await api.generateTeamRoster(teamId, startDate, endDate)
-    if (res && res.success) {
-      console.log(`[API] Roster generated: ${res.data?.created_count || 0} entries created`)
-    }
-    return res
-  }
-
-  // API Contract 03 §2.3: Buat Tim Shift Baru
-  async function createShiftTeamAction(data) {
-    console.log('[API] Creating new shift team...')
-    const res = await api.createShiftTeam(data)
-    if (res && res.success) {
-      console.log(`[API] Shift team created: ${res.data?.name}`)
-      await fetchShiftTeamsOnlyAction()
-    }
-    return res
-  }
-
-  // API Contract 03 §2.4: Update Tim Shift
-  async function updateShiftTeamAction(id, data) {
-    console.log(`[API] Updating shift team ID: ${id}...`)
-    const res = await api.updateShiftTeam(id, data)
-    if (res && res.success) {
-      await fetchShiftTeamsOnlyAction()
-    }
-    return res
-  }
-
-  // API Contract 03 §2.5: Hapus Tim Shift
-  async function deleteShiftTeamAction(id) {
-    console.log(`[API] Deleting shift team ID: ${id}...`)
-    const res = await api.deleteShiftTeam(id)
-    if (res && res.success) {
-      await fetchShiftTeamsOnlyAction()
-    }
-    return res
-  }
-
-  // API Contract 03 §2.6: Tambah Anggota ke Tim (Individual)
-  async function addTeamMemberAction(teamId, employeeId, joinedAt) {
-    console.log(`[API] Adding employee ${employeeId} to team ${teamId}...`)
-    const res = await api.addShiftTeamMember(teamId, {
-      employee_id: employeeId,
-      joined_at: joinedAt
-    })
-    if (res && res.success) {
-      console.log(`[API] Member added: ${res.data?.employee?.name}`)
-      await fetchShiftTeamsOnlyAction()
-    }
-    return res
-  }
-
-  // API Contract 03 §2.7: Atur Pola Rotasi Tim (KUNCI generate roster)
-  async function setTeamRotationPatternAction(teamId, data) {
-    console.log(`[API] Setting rotation pattern for team ${teamId}...`)
-    const res = await api.setTeamRotationPattern(teamId, data)
-    if (res && res.success) {
-      console.log(`[API] Rotation pattern set: ${res.data?.name}`)
-    }
-    return res
-  }
-
-  // Enterprise Roster Plan Actions (API Contract 03 §2)
-  async function fetchRosterPlanAction(id) {
+    loading.value = true
+    error.value = null
     try {
-      console.log(`[API] Fetching Roster Plan detail ID: ${id}...`)
-      const res = await api.fetchRosterPlan(id)
-      return res
-    } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
-    }
-  }
-
-  async function updateRosterPlanAction(id, data) {
-    try {
-      console.log(`[API] Updating Roster Plan ID: ${id}...`)
-      const res = await api.updateRosterPlan(id, data)
+      const response = await axiosInstance.post('/shift-swaps', data)
+      const res = response.data
       if (res && res.success) {
-        await fetchRosterPlansFilteredAction({ page: 1, per_page: 9 })
+        await fetchShiftSwapsOnlyAction()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      error.value = handleError(err)
+      return { success: false, message: error.value }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function respondShiftSwapPeerAction(swapId, responseType, rejectionReason = null) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.post(`/shift-swaps/${swapId}/respond`, {
+        response: responseType,
+        rejection_reason: rejectionReason
+      })
+      const res = response.data
+      if (res && res.success) {
+        await fetchShiftSwapsOnlyAction()
+      }
+      return res
+    } catch (err) {
+      error.value = handleError(err)
+      return { success: false, message: error.value }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function approveShiftSwapAction(swapId, status, rejectionReason = null) {
+    loading.value = true
+    error.value = null
+    try {
+      console.log(`[API] HR Approval for shift swap ID: ${swapId} to status: ${status}`)
+      const response = await axiosInstance.post(`/shift-swaps/${swapId}/approve`, {
+        status,
+        rejection_reason: rejectionReason
+      })
+      const res = response.data
+      if (res && res.success) {
+        console.log('[API] Shift swap status updated successfully by HR')
+        await fetchShiftSwapsOnlyAction()
+      }
+      return res
+    } catch (err) {
+      error.value = handleError(err)
+      return { success: false, message: error.value }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function createShiftAction(data) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.post('/shifts', data)
+      const res = response.data
+      if (res && res.success) {
+        await fetchShiftsOnlyAction()
+      }
+      return res
+    } catch (err) {
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function updateShiftAction(id, data) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.put(`/shifts/${id}`, data)
+      const res = response.data
+      if (res && res.success) {
+        await fetchShiftsOnlyAction()
+      }
+      return res
+    } catch (err) {
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function deleteShiftAction(id) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.delete(`/shifts/${id}`)
+      const res = response.data
+      if (res && res.success) {
+        await fetchShiftsOnlyAction()
+      }
+      return res
+    } catch (err) {
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchWorkScheduleMastersAction() {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get('/work-schedule-masters')
+      const res = response.data
+
+      let items = []
+      if (Array.isArray(res)) {
+        items = res
+      } else if (res && Array.isArray(res.data)) {
+        items = res.data
+      } else if (res && res.data && Array.isArray(res.data.data)) {
+        items = res.data.data
+      } else if (res && Array.isArray(res.items)) {
+        items = res.items
+      }
+
+      workScheduleMasters.value = items
+      return res
+    } catch (err) {
+      error.value = handleError(err)
+      console.warn('[API Warning] Fetching work schedule masters failed:', err.message)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function createWorkScheduleMasterAction(data) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.post('/work-schedule-masters', data)
+      const res = response.data
+      if (res && res.success) {
+        await fetchWorkScheduleMastersAction()
+      }
+      return res
+    } catch (err) {
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function updateWorkScheduleMasterAction(id, data) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.put(`/work-schedule-masters/${id}`, data)
+      const res = response.data
+      if (res && res.success) {
+        await fetchWorkScheduleMastersAction()
+      }
+      return res
+    } catch (err) {
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function deleteWorkScheduleMasterAction(id) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.delete(`/work-schedule-masters/${id}`)
+      const res = response.data
+      if (res && res.success) {
+        await fetchWorkScheduleMastersAction()
+      }
+      return res
+    } catch (err) {
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function loadRostersAction(page = 1, perPage = 10) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get('/rosters', { params: { page, per_page: perPage } })
+      const res = response.data
+      if (res && res.success && res.data) {
+        rosters.value = res.data
+      }
+    } catch (err) {
+      error.value = handleError(err)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function generateTeamRosterAction(teamId, startDate, endDate) {
+    loading.value = true
+    error.value = null
+    try {
+      console.log(`[API] Generating roster for team ${teamId} from ${startDate} to ${endDate}...`)
+      const response = await axiosInstance.post(`/shift-teams/${teamId}/generate-roster`, {
+        start_date: startDate,
+        end_date: endDate
+      })
+      const res = response.data
+      if (res && res.success) {
+        await fetchShiftTeamsOnlyAction()
+      }
+      return res
+    } catch (err) {
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function createShiftTeamAction(data) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.post('/shift-teams', data)
+      const res = response.data
+      if (res && res.success) {
+        await fetchShiftTeamsOnlyAction()
+      }
+      return res
+    } catch (err) {
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function updateShiftTeamAction(id, data) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.put(`/shift-teams/${id}`, data)
+      const res = response.data
+      if (res && res.success) {
+        await fetchShiftTeamsOnlyAction()
+      }
+      return res
+    } catch (err) {
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function deleteShiftTeamAction(id) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.delete(`/shift-teams/${id}`)
+      const res = response.data
+      if (res && res.success) {
+        await fetchShiftTeamsOnlyAction()
+      }
+      return res
+    } catch (err) {
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function addTeamMemberAction(teamId, data) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.post(`/shift-teams/${teamId}/members`, data)
+      const res = response.data
+      if (res && res.success) {
+        await fetchShiftTeamsOnlyAction()
+      }
+      return res
+    } catch (err) {
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function setTeamRotationPatternAction(teamId, data) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.post(`/shift-teams/${teamId}/patterns`, data)
+      const res = response.data
+      if (res && res.success) {
+        await fetchShiftTeamsOnlyAction()
+      }
+      return res
+    } catch (err) {
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function updateRotationPatternAction(id, data) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.put(`/rotation-patterns/${id}`, data)
+      const res = response.data
+      if (res && res.success) {
+        await fetchRotationPatternsFilteredAction()
+      }
+      return res
+    } catch (err) {
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function deleteRotationPatternAction(id) {
+    loading.value = true
+    error.value = null
+    try {
+      let res
+      try {
+        const response = await axiosInstance.delete(`/rotation-patterns/${id}`)
+        res = response.data
+      } catch (err) {
+        if (err.response && err.response.status === 404) {
+          const response = await axiosInstance.delete(`/shift-teams/patterns/${id}`)
+          res = response.data
+        } else {
+          throw err
+        }
+      }
+      if (res && res.success) {
+        await fetchRotationPatternsFilteredAction()
+      }
+      return res
+    } catch (err) {
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   async function createRosterPlanAction(data) {
+    loading.value = true
+    error.value = null
     try {
-      console.log('[API] Creating new Roster Plan...')
-      const res = await api.createRosterPlan(data)
+      const response = await axiosInstance.post('/roster-plans', data)
+      const res = response.data
       if (res && res.success) {
-        console.log(`[API] Roster Plan created: ${res.data?.code}`)
-        await fetchRosterPlansFilteredAction({ page: 1, per_page: 9 })
+        await fetchRosterPlansOnlyAction()
       }
       return res
     } catch (err) {
-      return {
-        success: false,
-        message: err.response?.data?.message || err.message
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchRosterPlanAction(id) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get(`/roster-plans/${id}`)
+      return response.data
+    } catch (err) {
+      error.value = handleError(err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function updateRosterPlanAction(id, data) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.put(`/roster-plans/${id}`, data)
+      const res = response.data
+      if (res && res.success) {
+        await fetchRosterPlansOnlyAction()
       }
+      return res
+    } catch (err) {
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   async function generateRosterPlanAction(id) {
+    loading.value = true
+    error.value = null
     try {
-      console.log(`[API] Generating Roster Plan ID: ${id}...`)
-      const res = await api.generateRosterPlan(id)
+      const response = await axiosInstance.post(`/roster-plans/${id}/generate`)
+      const res = response.data
       if (res && res.success) {
-        console.log(`[API] Roster generated: ${res.data?.created_count} entries. Coverage: ${res.data?.report?.coverage_percentage}%`)
-        await fetchRosterPlansFilteredAction({ page: 1, per_page: 9 })
+        await fetchRosterPlansOnlyAction()
       }
       return res
     } catch (err) {
-      return {
-        success: false,
-        message: err.response?.data?.message || err.message
-      }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   async function validateRosterPlanAction(id) {
+    loading.value = true
+    error.value = null
     try {
-      console.log(`[API] Running Soft Validation Engine for Roster Plan ID: ${id}...`)
-      const res = await api.validateRosterPlan(id)
+      const response = await axiosInstance.post(`/roster-plans/${id}/validate`)
+      const res = response.data
       if (res && res.success && res.data) {
         activeValidationReport.value = res.data
       }
       return res
     } catch (err) {
-      return {
-        success: false,
-        message: err.response?.data?.message || err.message
-      }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   async function publishRosterPlanAction(id) {
+    loading.value = true
+    error.value = null
     try {
-      console.log(`[API] Publishing Roster Plan ID: ${id}...`)
-      const res = await api.publishRosterPlan(id)
+      const response = await axiosInstance.post(`/roster-plans/${id}/publish`)
+      const res = response.data
       if (res && res.success) {
-        console.log(`[API] Roster Plan published: ${res.data?.published_at}`)
-        await fetchRosterPlansFilteredAction({ page: 1, per_page: 9 })
+        await fetchRosterPlansOnlyAction()
       }
       return res
     } catch (err) {
-      return {
-        success: false,
-        message: err.response?.data?.message || err.message
-      }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   async function lockRosterPlanAction(id) {
+    loading.value = true
+    error.value = null
     try {
-      console.log(`[API] Locking Roster Plan ID: ${id}...`)
-      const res = await api.lockRosterPlan(id)
+      const response = await axiosInstance.post(`/roster-plans/${id}/lock`)
+      const res = response.data
       if (res && res.success) {
-        console.log('[API] Roster Plan locked.')
-        await fetchRosterPlansFilteredAction({ page: 1, per_page: 9 })
+        await fetchRosterPlansOnlyAction()
       }
       return res
     } catch (err) {
-      return {
-        success: false,
-        message: err.response?.data?.message || err.message
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function deleteRosterPlanAction(id) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.delete(`/roster-plans/${id}`)
+      const res = response.data
+      if (res && res.success) {
+        await fetchRosterPlansOnlyAction()
       }
+      return res
+    } catch (err) {
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
-  }
-
-  async function fetchAvailablePeersAction(params = {}) {
-    console.log('[API] Fetching available peers for shift swap...')
-    const res = await api.fetchAvailablePeers(params)
-    if (res && res.success && res.data) {
-      availablePeers.value = Array.isArray(res.data.data) ? res.data.data : []
-    }
-    return res
-  }
-
-  // Shift CRUD
-  async function createShiftAction(data) {
-    const res = await api.createShift(data)
-    if (res && res.success) {
-      await fetchShiftsOnlyAction()
-    }
-    return res
-  }
-  async function updateShiftAction(id, data) {
-    const res = await api.updateShift(id, data)
-    if (res && res.success) {
-      await fetchShiftsOnlyAction()
-    }
-    return res
-  }
-  async function deleteShiftAction(id) {
-    const res = await api.deleteShift(id)
-    if (res && res.success) {
-      await fetchShiftsOnlyAction()
-    }
-    return res
   }
 
   async function fetchRosterPlansFilteredAction(filters = {}) {
+    loading.value = true
+    error.value = null
     try {
-      const rpRes = await api.fetchRosterPlansPaginated(filters)
+      const params = typeof filters === 'number' ? { page: filters, per_page: 9 } : {
+        page: filters.page || 1,
+        per_page: filters.per_page || filters.perPage || 9,
+        ...(filters.search ? { search: filters.search } : {}),
+        ...(filters.status ? { status: filters.status } : {}),
+        ...(filters.shift_team_id ? { shift_team_id: filters.shift_team_id } : {}),
+        ...(filters.month ? { month: filters.month } : {})
+      }
+      const response = await axiosInstance.get('/roster-plans', { params })
+      const rpRes = response.data
       if (rpRes && rpRes.success && rpRes.data) {
         const items = Array.isArray(rpRes.data.data) ? rpRes.data.data : []
         rosterPlans.value = items.map(rp => ({
@@ -422,100 +919,75 @@ export const useShiftsStore = defineStore('shifts', () => {
           total: rpRes.data.meta?.total || rosterPlans.value.length
         }
       }
-      return rpRes
     } catch (err) {
-      console.error('[API Error] Fetching roster plans filtered failed:', err.message)
-      throw err
+      error.value = handleError(err)
+    } finally {
+      loading.value = false
     }
-  }
-
-  async function deleteRosterPlanAction(id) {
-    const res = await api.deleteRosterPlan(id)
-    if (res && res.success) {
-      await loadInitialData()
-    }
-    return res
   }
 
   async function fetchRotationPatternsFilteredAction(filters = {}) {
+    loading.value = true
+    error.value = null
     try {
-      const patRes = await api.fetchRotationPatterns(filters)
-      if (patRes && patRes.success && patRes.data) {
-        const items = Array.isArray(patRes.data.data) ? patRes.data.data : (Array.isArray(patRes.data) ? patRes.data : [])
-        customRotationPatterns.value = items
-        if (patRes.data.meta) {
-          rotationPatternsPaginated.value = {
-            data: items,
-            current_page: patRes.data.meta.current_page || 1,
-            last_page: patRes.data.meta.last_page || 1,
-            total: patRes.data.meta.total || items.length
+      const params = typeof filters === 'string' || typeof filters === 'number'
+        ? { page: Number(filters), per_page: 9 }
+        : {
+            page: filters.page || 1,
+            per_page: filters.per_page || filters.perPage || 9,
+            ...(filters.search ? { search: filters.search } : {}),
+            ...(filters.shift_team_id ? { shift_team_id: filters.shift_team_id } : {})
           }
-        } else {
-          rotationPatternsPaginated.value = {
-            data: items,
-            current_page: 1,
-            last_page: 1,
-            total: items.length
-          }
+      let response
+      try {
+        response = await axiosInstance.get('/rotation-patterns', { params })
+      } catch (err) {
+        if (err.response && err.response.status === 404) {
+          customRotationPatterns.value = []
+          return { success: false, data: [] }
         }
+        throw err
       }
-      return patRes
-    } catch (err) {
-      console.error('[API Error] Fetching rotation patterns filtered failed:', err.message)
-      throw err
-    }
-  }
-
-  async function deleteRotationPatternAction(id) {
-    const res = await api.deleteRotationPattern(id)
-    if (res && res.success) {
-      await fetchRotationPatternsFilteredAction({ page: 1, per_page: 9 })
-    }
-    return res
-  }
-
-  async function updateRotationPatternAction(id, payload) {
-    const res = await api.updateRotationPattern(id, payload)
-    if (res && res.success) {
-      await fetchRotationPatternsFilteredAction({ page: 1, per_page: 9 })
-    }
-    return res
-  }
-
-  async function fetchWorkScheduleMastersAction() {
-    try {
-      const res = await api.fetchWorkScheduleMasters()
-      if (res && res.success) {
-        workScheduleMasters.value = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.data) ? res.data.data : [])
+      const res = response.data
+      if (res && res.success && res.data) {
+        const rawItems = Array.isArray(res.data.data) ? res.data.data : (Array.isArray(res.data) ? res.data : [])
+        customRotationPatterns.value = rawItems
+        rotationPatternsPaginated.value = {
+          data: rawItems,
+          current_page: res.data.meta?.current_page || 1,
+          last_page: res.data.meta?.last_page || 1,
+          total: res.data.meta?.total || rawItems.length
+        }
       }
       return res
     } catch (err) {
-      console.warn('[API Warning] Fetching work schedule masters failed:', err.message)
+      error.value = handleError(err)
+    } finally {
+      loading.value = false
     }
   }
 
-  async function createWorkScheduleMasterAction(data) {
-    const res = await api.createWorkScheduleMaster(data)
-    if (res && res.success) {
-      await fetchWorkScheduleMastersAction()
+  async function fetchAvailablePeersAction(params = {}) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get('/shift-swaps/available-peers', { params })
+      const res = response.data
+      let items = []
+      if (Array.isArray(res)) {
+        items = res
+      } else if (res && Array.isArray(res.data)) {
+        items = res.data
+      } else if (res && res.data && Array.isArray(res.data.data)) {
+        items = res.data.data
+      }
+      availablePeers.value = items
+      return res
+    } catch (err) {
+      error.value = handleError(err)
+    } finally {
+      loading.value = false
     }
-    return res
-  }
-
-  async function updateWorkScheduleMasterAction(id, data) {
-    const res = await api.updateWorkScheduleMaster(id, data)
-    if (res && res.success) {
-      await fetchWorkScheduleMastersAction()
-    }
-    return res
-  }
-
-  async function deleteWorkScheduleMasterAction(id) {
-    const res = await api.deleteWorkScheduleMaster(id)
-    if (res && res.success) {
-      await fetchWorkScheduleMastersAction()
-    }
-    return res
   }
 
   return {
@@ -533,32 +1005,24 @@ export const useShiftsStore = defineStore('shifts', () => {
     availablePeers,
     customRotationPatterns,
     rotationPatternsPaginated,
-    rotationPatterns,
     workScheduleMasters,
+    rotationPatterns,
+    loading,
+    error,
+    success,
+    fetchShift,
+    fetchRosterPlanCalendar,
+    fetchShiftTeamCalendar,
+    fetchAvailableShiftTeamEmployees,
+    fetchFixedRosters,
+    fetchWorkScheduleAssignments,
+    fetchEmployeeDailySchedule,
+    fetchEmployeeScheduleHistory,
     fetchShiftsOnlyAction,
     fetchShiftTeamsOnlyAction,
     fetchRosterPlansOnlyAction,
     fetchShiftSwapsOnlyAction,
-    loadRostersAction,
-    generateTeamRosterAction,
-    createShiftTeamAction,
-    updateShiftTeamAction,
-    deleteShiftTeamAction,
-    addTeamMemberAction,
-    setTeamRotationPatternAction,
-    updateRotationPatternAction,
-    fetchRosterPlanAction,
-    updateRosterPlanAction,
-    createRosterPlanAction,
-    generateRosterPlanAction,
-    validateRosterPlanAction,
-    publishRosterPlanAction,
-    lockRosterPlanAction,
-    fetchRosterPlansFilteredAction,
-    fetchRotationPatternsFilteredAction,
-    deleteRosterPlanAction,
-    deleteRotationPatternAction,
-    fetchAvailablePeersAction,
+    loadInitialData,
     assignWorkScheduleAction,
     assignRosterAction,
     adjustIndividualScheduleAction,
@@ -571,6 +1035,28 @@ export const useShiftsStore = defineStore('shifts', () => {
     fetchWorkScheduleMastersAction,
     createWorkScheduleMasterAction,
     updateWorkScheduleMasterAction,
-    deleteWorkScheduleMasterAction
+    deleteWorkScheduleMasterAction,
+    loadRostersAction,
+    generateTeamRosterAction,
+    createShiftTeamAction,
+    updateShiftTeamAction,
+    deleteShiftTeamAction,
+    addTeamMemberAction,
+    setTeamRotationPatternAction,
+    updateRotationPatternAction,
+    deleteRotationPatternAction,
+    createRosterPlanAction,
+    fetchRosterPlanAction,
+    updateRosterPlanAction,
+    generateRosterPlanAction,
+    validateRosterPlanAction,
+    publishRosterPlanAction,
+    lockRosterPlanAction,
+    deleteRosterPlanAction,
+    fetchRosterPlansFilteredAction,
+    fetchRotationPatternsFilteredAction,
+    fetchAvailablePeersAction
   }
 })
+
+export const useShiftStore = useShiftsStore

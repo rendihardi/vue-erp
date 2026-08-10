@@ -1,13 +1,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useErpStore } from '../../store/erp'
+import { useLeavesStore } from '../../store/leaves'
 import BaseButton from '../../components/BaseButton.vue'
 import { ArrowLeftIcon } from '@lucide/vue'
 
 const route = useRoute()
 const router = useRouter()
-const erpStore = useErpStore()
+const leavesStore = useLeavesStore()
 
 const isEdit = ref(false)
 const leaveTypeId = ref(null)
@@ -21,12 +21,12 @@ const form = ref({
 })
 
 onMounted(async () => {
-  await erpStore.loadLeavesOnly()
+  await leavesStore.loadInitialData()
   if (route.params.id) {
     isEdit.value = true
     leaveTypeId.value = route.params.id
     
-    const lt = erpStore.leaveTypes.find(l => l.id === leaveTypeId.value)
+    const lt = leavesStore.leaveTypes.find(l => String(l.id) === String(leaveTypeId.value))
     if (lt) {
       form.value = {
         name: lt.name,
@@ -44,10 +44,10 @@ import { showSuccess, showError } from '../../utils/swal'
 const handleSave = async () => {
   try {
     if (isEdit.value) {
-      await erpStore.updateLeaveTypeAction(leaveTypeId.value, form.value)
+      await leavesStore.updateLeaveTypeAction(leaveTypeId.value, form.value)
       showSuccess('Kebijakan Diperbarui!', 'Data jenis cuti berhasil disimpan.')
     } else {
-      await erpStore.createLeaveTypeAction(form.value)
+      await leavesStore.createLeaveTypeAction(form.value)
       showSuccess('Kebijakan Ditambahkan!', 'Jenis cuti baru berhasil dibuat.')
     }
     router.push({ path: '/employees/leaves', query: { tab: 'leave-types' } })

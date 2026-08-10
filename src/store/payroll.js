@@ -1,12 +1,15 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import * as api from '../api'
+import { axiosInstance } from '../plugins/axios'
+import { handleError } from '../helpers/errorHelper'
 
 export const usePayrollStore = defineStore('payroll', () => {
-  // Payroll runs (Admin HR view)
   const payrolls = ref([])
   const overtimes = ref([])
   const myPayslips = ref([])
+  const loading = ref(false)
+  const error = ref(null)
+  const success = ref(null)
 
   const totalPayrollAugust = computed(() => {
     return payrolls.value.reduce((acc, pay) => {
@@ -15,11 +18,13 @@ export const usePayrollStore = defineStore('payroll', () => {
   })
 
   async function loadInitialData() {
+    loading.value = true
+    error.value = null
     try {
       console.log('[API] Loading payroll runs history...')
-      const payrollRes = await api.fetchPayrollRuns()
-      if (payrollRes && payrollRes.success && Array.isArray(payrollRes.data)) {
-        payrolls.value = payrollRes.data.map(pay => ({
+      const payrollRes = await axiosInstance.get('/payroll/runs')
+      if (payrollRes.data?.success && Array.isArray(payrollRes.data?.data)) {
+        payrolls.value = payrollRes.data.data.map(pay => ({
           id: pay.id,
           idShort: String(pay.id).slice(0, 8),
           employeeId: pay.employee_id || 'EMP-001',
@@ -39,9 +44,9 @@ export const usePayrollStore = defineStore('payroll', () => {
       }
 
       console.log('[API] Loading overtime requests...')
-      const otRes = await api.fetchOvertimes()
-      if (otRes && otRes.success) {
-        const otData = Array.isArray(otRes.data) ? otRes.data : (otRes.data?.data || [])
+      const otRes = await axiosInstance.get('/overtime')
+      if (otRes.data?.success) {
+        const otData = Array.isArray(otRes.data.data) ? otRes.data.data : (otRes.data.data?.data || [])
         overtimes.value = otData.map(ot => ({
           id: ot.id,
           idShort: String(ot.id).slice(0, 8),
@@ -59,16 +64,15 @@ export const usePayrollStore = defineStore('payroll', () => {
           workReport: ot.work_report || null,
           preApprovalStatus: ot.pre_approval_status || ot.status || 'pending_approval',
           claimStatus: ot.claim_status || 'none',
-          // API Contract 06: calculated_pay after HR approval
           calculatedPay: ot.calculated_pay || 0,
           status: ot.status || 'pending_approval'
         }))
       }
 
       console.log('[API] Loading my payslips (self-service)...')
-      const slipsRes = await api.fetchMyPayslips()
-      if (slipsRes && slipsRes.success && Array.isArray(slipsRes.data)) {
-        myPayslips.value = slipsRes.data.map(slip => ({
+      const slipsRes = await axiosInstance.get('/payroll/my-slips')
+      if (slipsRes.data?.success && Array.isArray(slipsRes.data?.data)) {
+        myPayslips.value = slipsRes.data.data.map(slip => ({
           id: slip.id,
           period: slip.period,
           basicSalary: slip.basic_salary || 0,
@@ -79,81 +83,120 @@ export const usePayrollStore = defineStore('payroll', () => {
         }))
       }
     } catch (err) {
+      error.value = handleError(err)
       console.error('[API Error] Fetching payroll data failed:', err.message)
+    } finally {
+      loading.value = false
     }
   }
 
-  // API Contract 06.1: Pre-Approval Rencana Lembur
   async function requestOvertimeAction(data) {
+    loading.value = true
+    error.value = null
     try {
       console.log('[API] Submitting overtime pre-approval request...')
-      const res = await api.requestOvertime(data)
+      const response = await axiosInstance.post('/overtime/request', data)
+      const res = response.data
       if (res && res.success) {
         await loadInitialData()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
-  // API Contract 06.2: Klaim Aktual Lembur
   async function claimOvertimeAction(overtimeId, data) {
+    loading.value = true
+    error.value = null
     try {
       console.log(`[API] Submitting actual overtime claim for ID: ${overtimeId}...`)
-      const res = await api.claimOvertime(overtimeId, data)
+      const response = await axiosInstance.post(`/overtime/${overtimeId}/claim`, data)
+      const res = response.data
       if (res && res.success) {
         await loadInitialData()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
-  // API Contract 06: HR Final Approval + calculated_pay
   async function approveOvertimeAction(otId, status, rejectionReason = null) {
+    loading.value = true
+    error.value = null
     try {
       console.log(`[API] HR approving overtime ID: ${otId} to status: ${status}`)
-      const res = await api.approveOvertime(otId, status, rejectionReason)
+      const response = await axiosInstance.post(`/overtime/${otId}/approve`, {
+        status,
+        rejection_reason: rejectionReason
+      })
+      const res = response.data
       if (res && res.success) {
         console.log(`[API] Overtime approved. Calculated pay: ${res.data?.calculated_pay || 0}`)
         await loadInitialData()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
-  // API Contract 07: Run Payroll
   async function updatePayrollStatus(runId = null, status = null) {
+    loading.value = true
+    error.value = null
     try {
       console.log('[API] Running payroll calculation on server...')
       const currentDate = new Date()
-      const res = await api.runPayroll(currentDate.getMonth() + 1, currentDate.getFullYear())
+      const response = await axiosInstance.post('/payroll/run', {
+        month: currentDate.getMonth() + 1,
+        year: currentDate.getFullYear()
+      })
+      const res = response.data
       if (res && res.success) {
         console.log('[API] Payroll run completed successfully')
         await loadInitialData()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
-  // API Contract 07: Finalisasi & Release Payroll Slip
   async function releasePayrollAction(runId) {
+    loading.value = true
+    error.value = null
     try {
       console.log(`[API] Releasing payroll run ID: ${runId}...`)
-      const res = await api.releasePayroll(runId)
+      const response = await axiosInstance.post(`/payroll/runs/${runId}/release`)
+      const res = response.data
       if (res && res.success) {
         console.log('[API] Payroll released. Payslips now accessible to employees.')
         await loadInitialData()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
@@ -161,6 +204,9 @@ export const usePayrollStore = defineStore('payroll', () => {
     payrolls,
     overtimes,
     myPayslips,
+    loading,
+    error,
+    success,
     totalPayrollAugust,
     loadInitialData,
     requestOvertimeAction,
@@ -170,4 +216,3 @@ export const usePayrollStore = defineStore('payroll', () => {
     releasePayrollAction
   }
 })
-

@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import * as api from '../api'
+import { axiosInstance } from '../plugins/axios'
+import { handleError } from '../helpers/errorHelper'
 
-export const useEmployeesStore = defineStore('employees', () => {
+export const useEmployeeStore = defineStore('employees', () => {
   const employees = ref([])
   const attendanceLogs = ref([])
   const departments = ref([])
@@ -16,6 +17,10 @@ export const useEmployeesStore = defineStore('employees', () => {
   const officeLocationsPaginated = ref({ data: [], current_page: 1, last_page: 1, total: 0 })
   const contractsPaginated = ref({ data: [], current_page: 1, last_page: 1, total: 0 })
 
+  const loading = ref(false)
+  const error = ref(null)
+  const success = ref(null)
+
   const totalEmployees = computed(() => employees.value.length)
   
   const todayAttendanceRate = computed(() => {
@@ -24,10 +29,111 @@ export const useEmployeesStore = defineStore('employees', () => {
     return Math.round((present / totalEmployees.value) * 100)
   })
 
-  // Individual Lazy Loaders — each fetches ONLY its own data
-  async function loadEmployeesOnly() {
+  // Individual Fetch Actions
+  async function fetchEmployee(id) {
+    loading.value = true
+    error.value = null
     try {
-      const empRes = await api.fetchEmployeesPaginated(1, 100)
+      const response = await axiosInstance.get(`/employees/${id}`)
+      return response.data
+    } catch (err) {
+      error.value = handleError(err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchDepartment(id) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get(`/departments/${id}`)
+      return response.data
+    } catch (err) {
+      error.value = handleError(err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchPosition(id) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get(`/positions/${id}`)
+      return response.data
+    } catch (err) {
+      error.value = handleError(err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchOfficeLocation(id) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get(`/office-locations/${id}`)
+      return response.data
+    } catch (err) {
+      error.value = handleError(err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchContract(id) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get(`/contracts/${id}`)
+      return response.data
+    } catch (err) {
+      error.value = handleError(err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function downloadContractFile(id) {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get(`/contracts/${id}/download`, {
+        responseType: 'blob'
+      })
+      return response
+    } catch (err) {
+      error.value = handleError(err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // Individual Lazy Loaders
+  async function loadEmployeesOnly() {
+    loading.value = true
+    error.value = null
+    try {
+      let empRes
+      try {
+        const response = await axiosInstance.get('/employees/paginated', { params: { page: 1, per_page: 100 } })
+        empRes = response.data
+      } catch (err) {
+        if (err.response && err.response.status === 404) {
+          const response = await axiosInstance.get('/employees', { params: { page: 1, per_page: 100 } })
+          empRes = response.data
+        } else {
+          throw err
+        }
+      }
+
       if (empRes && empRes.success && empRes.data) {
         const items = Array.isArray(empRes.data.data) ? empRes.data.data : (Array.isArray(empRes.data) ? empRes.data : [])
         const meta = empRes.data.meta || {}
@@ -59,47 +165,71 @@ export const useEmployeesStore = defineStore('employees', () => {
         }
       }
     } catch (err) {
+      error.value = handleError(err)
       console.error('[API Error] Fetching employees failed:', err.message)
+    } finally {
+      loading.value = false
     }
   }
 
   async function loadDepartmentsOnly() {
+    loading.value = true
+    error.value = null
     try {
-      const deptRes = await api.fetchDepartments()
+      const response = await axiosInstance.get('/departments')
+      const deptRes = response.data
       if (deptRes && deptRes.success && Array.isArray(deptRes.data)) {
         departments.value = deptRes.data
       }
     } catch (err) {
+      error.value = handleError(err)
       console.error('[API Error] Fetching departments failed:', err.message)
+    } finally {
+      loading.value = false
     }
   }
 
   async function loadPositionsOnly() {
+    loading.value = true
+    error.value = null
     try {
-      const posRes = await api.fetchPositions()
+      const response = await axiosInstance.get('/positions')
+      const posRes = response.data
       if (posRes && posRes.success && Array.isArray(posRes.data)) {
         positions.value = posRes.data
       }
     } catch (err) {
+      error.value = handleError(err)
       console.error('[API Error] Fetching positions failed:', err.message)
+    } finally {
+      loading.value = false
     }
   }
 
   async function loadOfficeLocationsOnly() {
+    loading.value = true
+    error.value = null
     try {
-      const locRes = await api.fetchOfficeLocations()
+      const response = await axiosInstance.get('/office-locations')
+      const locRes = response.data
       if (locRes && locRes.success && Array.isArray(locRes.data)) {
         officeLocations.value = locRes.data
       }
     } catch (err) {
+      error.value = handleError(err)
       console.error('[API Error] Fetching office locations failed:', err.message)
+    } finally {
+      loading.value = false
     }
   }
 
   async function loadAttendanceSummaryOnly() {
+    loading.value = true
+    error.value = null
     try {
       const todayString = new Date().toISOString().split('T')[0]
-      const summaryRes = await api.fetchDailySummary(todayString)
+      const response = await axiosInstance.get('/attendance/daily-summary', { params: { date: todayString } })
+      const summaryRes = response.data
       if (summaryRes && summaryRes.success && summaryRes.data && Array.isArray(summaryRes.data.data)) {
         attendanceLogs.value = summaryRes.data.data.map(log => ({
           id: String(log.id).slice(0, 8),
@@ -114,22 +244,30 @@ export const useEmployeesStore = defineStore('employees', () => {
         }))
       }
     } catch (err) {
+      error.value = handleError(err)
       console.error('[API Error] Fetching attendance summary failed:', err.message)
+    } finally {
+      loading.value = false
     }
   }
 
   async function loadContractsOnly() {
+    loading.value = true
+    error.value = null
     try {
-      const contractRes = await api.fetchContracts()
+      const response = await axiosInstance.get('/contracts')
+      const contractRes = response.data
       if (contractRes && contractRes.success && Array.isArray(contractRes.data)) {
         contracts.value = contractRes.data
       }
     } catch (err) {
+      error.value = handleError(err)
       console.error('[API Error] Fetching contracts failed:', err.message)
+    } finally {
+      loading.value = false
     }
   }
 
-  // Lightweight initial load — ONLY employees for dropdown references
   async function loadInitialData() {
     if (employees.value.length === 0) {
       await loadEmployeesOnly()
@@ -137,237 +275,400 @@ export const useEmployeesStore = defineStore('employees', () => {
   }
 
   async function loadEmployeesPaginated(page = 1, perPage = 10, search = '') {
-    const res = await api.fetchEmployeesPaginated(page, perPage, search)
-    if (res && res.success && res.data) {
-      // API Contract 01: paginated response: res.data.data (items) + res.data.meta (pagination)
-      const items = Array.isArray(res.data.data) ? res.data.data : []
-      const meta = res.data.meta || {}
-      const mapped = items.map(e => ({
-        id: e.id,
-        nik: e.nik || String(e.id).slice(0, 7),
-        name: e.name,
-        email: e.user ? e.user.email : (e.email || ''),
-        phone: e.phone || '',
-        departmentId: e.department ? e.department.id : (e.department_id || ''),
-        positionId: e.position ? e.position.id : (e.position_id || ''),
-        officeLocationId: e.office_location ? e.office_location.id : (e.office_location_id || ''),
-        dept: e.department ? e.department.name : 'Unassigned',
-        position: e.position ? e.position.name : 'Staff',
-        officeLocation: e.office_location ? e.office_location.name : 'Kantor Pusat',
-        shiftMode: e.shift_mode || 'fixed',
-        contractType: e.face_registered ? 'PKWTT' : 'PKWT',
-        status: e.status === 'active' || e.status === 'Active' ? 'Active' : 'Inactive',
-        role: e.role || (e.user ? e.user.role : 'employee'),
-        faceRegistered: !!e.face_registered,
-        avatar: e.avatar_url || e.avatar || null
-      }))
-      employees.value = mapped
-      employeesPaginated.value = {
-        data: mapped,
-        current_page: meta.current_page || page,
-        last_page: meta.last_page || 1,
-        total: meta.total || mapped.length
+    loading.value = true
+    error.value = null
+    try {
+      let res
+      try {
+        const response = await axiosInstance.get('/employees/paginated', { params: { page, per_page: perPage, search } })
+        res = response.data
+      } catch (err) {
+        if (err.response && err.response.status === 404) {
+          const response = await axiosInstance.get('/employees', { params: { page, per_page: perPage, search } })
+          res = response.data
+        } else {
+          throw err
+        }
       }
+
+      if (res && res.success && res.data) {
+        const items = Array.isArray(res.data.data) ? res.data.data : []
+        const meta = res.data.meta || {}
+        const mapped = items.map(e => ({
+          id: e.id,
+          nik: e.nik || String(e.id).slice(0, 7),
+          name: e.name,
+          email: e.user ? e.user.email : (e.email || ''),
+          phone: e.phone || '',
+          departmentId: e.department ? e.department.id : (e.department_id || ''),
+          positionId: e.position ? e.position.id : (e.position_id || ''),
+          officeLocationId: e.office_location ? e.office_location.id : (e.office_location_id || ''),
+          dept: e.department ? e.department.name : 'Unassigned',
+          position: e.position ? e.position.name : 'Staff',
+          officeLocation: e.office_location ? e.office_location.name : 'Kantor Pusat',
+          shiftMode: e.shift_mode || 'fixed',
+          contractType: e.face_registered ? 'PKWTT' : 'PKWT',
+          status: e.status === 'active' || e.status === 'Active' ? 'Active' : 'Inactive',
+          role: e.role || (e.user ? e.user.role : 'employee'),
+          faceRegistered: !!e.face_registered,
+          avatar: e.avatar_url || e.avatar || null
+        }))
+        employees.value = mapped
+        employeesPaginated.value = {
+          data: mapped,
+          current_page: meta.current_page || page,
+          last_page: meta.last_page || 1,
+          total: meta.total || mapped.length
+        }
+      }
+    } catch (err) {
+      error.value = handleError(err)
+    } finally {
+      loading.value = false
     }
   }
 
   async function loadOfficeLocationsPaginated(page = 1, perPage = 10, search = '') {
-    const res = await api.fetchOfficeLocationsPaginated(page, perPage, search)
-    if (res && res.success && res.data) {
-      const items = Array.isArray(res.data.data) ? res.data.data : []
-      officeLocations.value = items
-      officeLocationsPaginated.value = {
-        data: items,
-        current_page: res.data.meta?.current_page || page,
-        last_page: res.data.meta?.last_page || 1,
-        total: res.data.meta?.total || items.length
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get('/office-locations/paginated', { params: { page, per_page: perPage, search } })
+      const res = response.data
+      if (res && res.success && res.data) {
+        const items = Array.isArray(res.data.data) ? res.data.data : []
+        officeLocations.value = items
+        officeLocationsPaginated.value = {
+          data: items,
+          current_page: res.data.meta?.current_page || page,
+          last_page: res.data.meta?.last_page || 1,
+          total: res.data.meta?.total || items.length
+        }
       }
+    } catch (err) {
+      error.value = handleError(err)
+    } finally {
+      loading.value = false
     }
   }
 
   async function loadDepartmentsPaginated(page = 1, perPage = 10, search = '') {
-    const res = await api.fetchDepartmentsPaginated(page, perPage, search)
-    if (res && res.success && res.data) {
-      const items = Array.isArray(res.data.data) ? res.data.data : []
-      departments.value = items
-      departmentsPaginated.value = {
-        data: items,
-        current_page: res.data.meta?.current_page || page,
-        last_page: res.data.meta?.last_page || 1,
-        total: res.data.meta?.total || items.length
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get('/departments/paginated', { params: { page, per_page: perPage, search } })
+      const res = response.data
+      if (res && res.success && res.data) {
+        const items = Array.isArray(res.data.data) ? res.data.data : []
+        departments.value = items
+        departmentsPaginated.value = {
+          data: items,
+          current_page: res.data.meta?.current_page || page,
+          last_page: res.data.meta?.last_page || 1,
+          total: res.data.meta?.total || items.length
+        }
       }
+    } catch (err) {
+      error.value = handleError(err)
+    } finally {
+      loading.value = false
     }
   }
 
   async function loadPositionsPaginated(page = 1, perPage = 10, search = '') {
-    const res = await api.fetchPositionsPaginated(page, perPage, search)
-    if (res && res.success && res.data) {
-      const items = Array.isArray(res.data.data) ? res.data.data : []
-      positions.value = items
-      positionsPaginated.value = {
-        data: items,
-        current_page: res.data.meta?.current_page || page,
-        last_page: res.data.meta?.last_page || 1,
-        total: res.data.meta?.total || items.length
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get('/positions/paginated', { params: { page, per_page: perPage, search } })
+      const res = response.data
+      if (res && res.success && res.data) {
+        const items = Array.isArray(res.data.data) ? res.data.data : []
+        positions.value = items
+        positionsPaginated.value = {
+          data: items,
+          current_page: res.data.meta?.current_page || page,
+          last_page: res.data.meta?.last_page || 1,
+          total: res.data.meta?.total || items.length
+        }
       }
+    } catch (err) {
+      error.value = handleError(err)
+    } finally {
+      loading.value = false
     }
   }
 
   async function loadContractsPaginated(page = 1, perPage = 10, search = '') {
-    const res = await api.fetchContractsPaginated(page, perPage, search)
-    if (res && res.success && res.data) {
-      const items = Array.isArray(res.data.data) ? res.data.data : []
-      contracts.value = items
-      contractsPaginated.value = {
-        data: items,
-        current_page: res.data.meta?.current_page || page,
-        last_page: res.data.meta?.last_page || 1,
-        total: res.data.meta?.total || items.length
+    loading.value = true
+    error.value = null
+    try {
+      const response = await axiosInstance.get('/contracts/paginated', { params: { page, per_page: perPage, search } })
+      const res = response.data
+      if (res && res.success && res.data) {
+        const items = Array.isArray(res.data.data) ? res.data.data : []
+        contracts.value = items
+        contractsPaginated.value = {
+          data: items,
+          current_page: res.data.meta?.current_page || page,
+          last_page: res.data.meta?.last_page || 1,
+          total: res.data.meta?.total || items.length
+        }
       }
+    } catch (err) {
+      error.value = handleError(err)
+    } finally {
+      loading.value = false
     }
   }
 
   // Employee CRUD
   async function createEmployeeAction(data) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.createEmployee(data)
+      const isFormData = typeof FormData !== 'undefined' && data instanceof FormData
+      const response = await axiosInstance.post('/employees', data, isFormData ? {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      } : {})
+      const res = response.data
       if (res && res.success) {
         await loadEmployeesOnly()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
+
   async function updateEmployeeAction(id, data) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.updateEmployee(id, data)
+      const isFormData = typeof FormData !== 'undefined' && data instanceof FormData
+      let response
+      if (isFormData) {
+        if (!data.has('_method')) {
+          data.append('_method', 'PUT')
+        }
+        response = await axiosInstance.post(`/employees/${id}`, data, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+      } else {
+        response = await axiosInstance.put(`/employees/${id}`, data)
+      }
+      const res = response.data
       if (res && res.success) {
         await loadEmployeesOnly()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
+
   async function deleteEmployeeAction(id) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.deleteEmployee(id)
+      const response = await axiosInstance.delete(`/employees/${id}`)
+      const res = response.data
       if (res && res.success) {
         await loadEmployeesOnly()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   // Office Location CRUD
   async function createOfficeLocationAction(data) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.createOfficeLocation(data)
+      const response = await axiosInstance.post('/office-locations', data)
+      const res = response.data
       if (res && res.success) {
         await loadOfficeLocationsOnly()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
+
   async function updateOfficeLocationAction(id, data) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.updateOfficeLocation(id, data)
+      const response = await axiosInstance.put(`/office-locations/${id}`, data)
+      const res = response.data
       if (res && res.success) {
         await loadOfficeLocationsOnly()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
+
   async function deleteOfficeLocationAction(id) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.deleteOfficeLocation(id)
+      const response = await axiosInstance.delete(`/office-locations/${id}`)
+      const res = response.data
       if (res && res.success) {
         await loadOfficeLocationsOnly()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   // Department CRUD
   async function createDepartmentAction(data) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.createDepartment(data)
+      const response = await axiosInstance.post('/departments', data)
+      const res = response.data
       if (res && res.success) {
         await loadDepartmentsOnly()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
+
   async function updateDepartmentAction(id, data) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.updateDepartment(id, data)
+      const response = await axiosInstance.put(`/departments/${id}`, data)
+      const res = response.data
       if (res && res.success) {
         await loadDepartmentsOnly()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
+
   async function deleteDepartmentAction(id) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.deleteDepartment(id)
+      const response = await axiosInstance.delete(`/departments/${id}`)
+      const res = response.data
       if (res && res.success) {
         await loadDepartmentsOnly()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   // Position CRUD
   async function createPositionAction(data) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.createPosition(data)
+      const response = await axiosInstance.post('/positions', data)
+      const res = response.data
       if (res && res.success) {
         await loadPositionsOnly()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
+
   async function updatePositionAction(id, data) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.updatePosition(id, data)
+      const response = await axiosInstance.put(`/positions/${id}`, data)
+      const res = response.data
       if (res && res.success) {
         await loadPositionsOnly()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
+
   async function deletePositionAction(id) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.deletePosition(id)
+      const response = await axiosInstance.delete(`/positions/${id}`)
+      const res = response.data
       if (res && res.success) {
         await loadPositionsOnly()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   async function checkInEmployee(employeeId, status = 'Ontime') {
+    loading.value = true
+    error.value = null
     try {
       const employee = employees.value.find(e => e.id === employeeId || e.nik === employeeId)
       if (!employee) return { success: false, message: 'Karyawan tidak ditemukan' }
@@ -382,7 +683,10 @@ export const useEmployeesStore = defineStore('employees', () => {
       formData.append('selfie_image', dummySelfie)
 
       console.log(`[API] Registering check-in on server for employee: ${employeeId}`)
-      const apiRes = await api.checkIn(formData)
+      const response = await axiosInstance.post('/attendance/check-in', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      const apiRes = response.data
       if (apiRes && apiRes.success) {
         console.log('[API] Check-in successfully registered')
         await loadAttendanceSummaryOnly()
@@ -390,44 +694,83 @@ export const useEmployeesStore = defineStore('employees', () => {
       }
       return apiRes
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   // Contract Actions
   async function createContractAction(data) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.createContract(data)
+      const isFormData = typeof FormData !== 'undefined' && data instanceof FormData
+      const response = await axiosInstance.post('/contracts', data, isFormData ? {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      } : {})
+      const res = response.data
       if (res && res.success) {
         await loadContractsOnly()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   async function updateContractAction(id, data) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.updateContract(id, data)
+      const isFormData = typeof FormData !== 'undefined' && data instanceof FormData
+      let response
+      if (isFormData) {
+        if (!data.has('_method')) {
+          data.append('_method', 'PUT')
+        }
+        response = await axiosInstance.post(`/contracts/${id}`, data, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+      } else {
+        response = await axiosInstance.put(`/contracts/${id}`, data)
+      }
+      const res = response.data
       if (res && res.success) {
         await loadContractsOnly()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   async function deleteContractAction(id) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.deleteContract(id)
+      const response = await axiosInstance.delete(`/contracts/${id}`)
+      const res = response.data
       if (res && res.success) {
         await loadContractsOnly()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
@@ -443,8 +786,17 @@ export const useEmployeesStore = defineStore('employees', () => {
     positionsPaginated,
     officeLocationsPaginated,
     contractsPaginated,
+    loading,
+    error,
+    success,
     totalEmployees,
     todayAttendanceRate,
+    fetchEmployee,
+    fetchDepartment,
+    fetchPosition,
+    fetchOfficeLocation,
+    fetchContract,
+    downloadContractFile,
     loadInitialData,
     loadEmployeesOnly,
     loadDepartmentsOnly,
@@ -475,3 +827,6 @@ export const useEmployeesStore = defineStore('employees', () => {
     checkInEmployee
   }
 })
+
+// Alias export to maintain backward compatibility with components using useEmployeesStore
+export const useEmployeesStore = useEmployeeStore

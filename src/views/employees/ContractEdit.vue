@@ -1,14 +1,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useErpStore } from '../../store/erp'
+import { useEmployeeStore } from '../../store/employees'
 import BaseButton from '../../components/BaseButton.vue'
 import { ArrowLeftIcon } from '@lucide/vue'
-import * as api from '../../api'
 
 const route = useRoute()
 const router = useRouter()
-const erpStore = useErpStore()
+const employeeStore = useEmployeeStore()
 
 const contractId = ref(route.params.id)
 const form = ref({
@@ -35,9 +34,9 @@ const handleDocChange = (e) => {
 }
 
 onMounted(async () => {
-  await erpStore.loadEmployeesOnly()
+  await employeeStore.loadEmployeesOnly()
   try {
-    const res = await api.fetchContract(contractId.value)
+    const res = await employeeStore.fetchContract(contractId.value)
     if (res && res.success && res.data) {
       const c = res.data
       currentDocUrl.value = c.document_url || c.download_url || null
@@ -76,7 +75,7 @@ const handleSave = async () => {
         payload.end_date = null
       }
     }
-    await erpStore.updateContractAction(contractId.value, payload)
+    await employeeStore.updateContractAction(contractId.value, payload)
     router.push('/employees/contracts')
   } catch (err) {
     alert('Gagal memperbarui kontrak: ' + err.message)
@@ -106,7 +105,7 @@ const handleSave = async () => {
           <label class="block font-bold text-slate-500 uppercase mb-1">Karyawan</label>
           <select v-model="form.employee_id" required class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:outline-none focus:border-emerald-500 text-xs">
             <option value="">-- Pilih Karyawan --</option>
-            <option v-for="emp in erpStore.employees" :key="emp.id" :value="emp.id">
+            <option v-for="emp in employeeStore.employees" :key="emp.id" :value="emp.id">
               {{ emp.name }} ({{ emp.nik }})
             </option>
           </select>

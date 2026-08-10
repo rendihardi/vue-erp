@@ -22,16 +22,16 @@ import {
   MoonIcon,
   SmartphoneIcon
 } from '@lucide/vue'
-import { useErpStore } from '../store/erp'
+import { useAuthStore } from '../store/auth'
 
 const route = useRoute()
 const router = useRouter()
-const erpStore = useErpStore()
+const authStore = useAuthStore()
 
 const isDarkMode = ref(false)
 
 const handleLogout = () => {
-  erpStore.logoutAction()
+  authStore.logoutAction()
   router.push({ name: 'Login' })
 }
 </script>

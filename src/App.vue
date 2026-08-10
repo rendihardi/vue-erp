@@ -35,7 +35,7 @@ const isPortalOrLogin = computed(() => route.path === '/' || route.path === '/lo
             name="fade" 
             mode="out-in"
           >
-            <component :is="Component" />
+            <component :is="Component" v-if="Component" />
           </transition>
         </RouterView>
       </div>

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useErpStore } from '../../store/erp'
+import { usePayrollStore } from '../../store/payroll'
 import BaseBadge from '../../components/BaseBadge.vue'
 import BaseButton from '../../components/BaseButton.vue'
 import { 
@@ -13,7 +13,7 @@ import {
   FileCheckIcon
 } from '@lucide/vue'
 
-const erpStore = useErpStore()
+const payrollStore = usePayrollStore()
 
 const formatRupiah = (num) => {
   return new Intl.NumberFormat('id-ID', {
@@ -40,7 +40,7 @@ const handleSubmitPreApproval = async () => {
   }
   try {
     isSubmittingPreApproval.value = true
-    const res = await erpStore.requestOvertimeAction({ ...preApprovalForm.value })
+    const res = await payrollStore.requestOvertimeAction({ ...preApprovalForm.value })
     if (res && res.success) {
       alert(`Rencana lembur berhasil diajukan! (${res.data?.planned_hours || ''} jam direncanakan) Status: ${res.data?.status || 'pending_approval'}`)
       showPreApprovalModal.value = false
@@ -82,7 +82,7 @@ const handleSubmitClaim = async () => {
   }
   try {
     isSubmittingClaim.value = true
-    const res = await erpStore.claimOvertimeAction(selectedOtForClaim.value.id, { ...claimForm.value })
+    const res = await payrollStore.claimOvertimeAction(selectedOtForClaim.value.id, { ...claimForm.value })
     if (res && res.success) {
       alert(`Klaim lembur aktual berhasil dikirim! Jam aktual: ${res.data?.actual_hours || ''} jam. Status: ${res.data?.status}`)
       showClaimModal.value = false
@@ -98,7 +98,7 @@ const handleSubmitClaim = async () => {
 
 // ── HR Approval Actions ────────────────────────────────────
 const handleApprovePreRequest = async (ot) => {
-  const res = await erpStore.approveOvertimeAction(ot.id, 'approved')
+  const res = await payrollStore.approveOvertimeAction(ot.id, 'approved')
   if (res && res.success && res.data?.calculated_pay) {
     alert(`Lembur disetujui! Upah Depnaker dihitung: ${formatRupiah(res.data.calculated_pay)}`)
   }
@@ -107,11 +107,11 @@ const handleApprovePreRequest = async (ot) => {
 const handleRejectPreRequest = async (ot) => {
   const reason = prompt('Masukkan alasan penolakan:')
   if (reason === null) return
-  await erpStore.approveOvertimeAction(ot.id, 'rejected', reason)
+  await payrollStore.approveOvertimeAction(ot.id, 'rejected', reason)
 }
 
 const handleApproveClaim = async (ot) => {
-  const res = await erpStore.approveOvertimeAction(ot.id, 'approved')
+  const res = await payrollStore.approveOvertimeAction(ot.id, 'approved')
   if (res && res.success) {
     const pay = res.data?.calculated_pay
     alert(`Klaim lembur disetujui!${pay ? ' Upah Depnaker: ' + formatRupiah(pay) : ''}`)
@@ -124,9 +124,6 @@ const statusVariant = (status) => {
   if (status === 'claimed') return 'info'
   return 'warning'
 }
-
-import { usePayrollStore } from '../../store/payroll'
-const payrollStore = usePayrollStore()
 
 onMounted(() => {
   payrollStore.loadInitialData()
@@ -225,7 +222,7 @@ onMounted(() => {
           </thead>
           <tbody class="divide-y divide-slate-100 font-sans">
             <tr 
-              v-for="ot in erpStore.overtimes" 
+              v-for="ot in payrollStore.overtimes" 
               :key="ot.id"
               class="hover:bg-slate-50/80 transition-colors"
             >
@@ -291,7 +288,7 @@ onMounted(() => {
                 <span v-else class="text-slate-300 text-[10px]">—</span>
               </td>
             </tr>
-            <tr v-if="!erpStore.overtimes || erpStore.overtimes.length === 0">
+            <tr v-if="!payrollStore.overtimes || payrollStore.overtimes.length === 0">
               <td colspan="8" class="py-8 text-center text-slate-400 font-medium">
                 Belum ada data pengajuan lembur.
               </td>

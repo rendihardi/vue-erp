@@ -1,23 +1,32 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import * as api from '../api'
+import { axiosInstance } from '../plugins/axios'
+import { handleError } from '../helpers/errorHelper'
 
 export const useSharedServicesStore = defineStore('sharedServices', () => {
   const nationalHolidays = ref([])
   const auditLogs = ref([])
   const employeeLocationHistories = ref({})
   const faceProfiles = ref({})
+  const loading = ref(false)
+  const error = ref(null)
+  const success = ref(null)
 
   async function loadNationalHolidays(year = null) {
+    loading.value = true
+    error.value = null
     try {
-      // API Contract 02: try /national-holidays/paginated first, fallback to /national-holidays if 404
       let res
       try {
-        res = await api.fetchNationalHolidaysPaginated(1, 100, year)
+        const response = await axiosInstance.get('/national-holidays/paginated', {
+          params: { page: 1, per_page: 100, ...(year ? { year } : {}) }
+        })
+        res = response.data
       } catch (err) {
         if (err.response && err.response.status === 404) {
           console.warn('[API Fallback] /national-holidays/paginated not found (404), falling back to /national-holidays')
-          res = await api.fetchNationalHolidays()
+          const response = await axiosInstance.get('/national-holidays', { params: year ? { year } : {} })
+          res = response.data
         } else {
           throw err
         }
@@ -31,102 +40,155 @@ export const useSharedServicesStore = defineStore('sharedServices', () => {
         }))
       }
     } catch (err) {
+      error.value = handleError(err)
       console.error('[API Error] Fetching national holidays failed:', err.message)
+    } finally {
+      loading.value = false
     }
   }
 
   async function createNationalHolidayAction(data) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.createNationalHoliday(data)
+      const response = await axiosInstance.post('/national-holidays', data)
+      const res = response.data
       if (res && res.success) {
         await loadNationalHolidays()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   async function updateNationalHolidayAction(id, data) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.updateNationalHoliday(id, data)
+      const response = await axiosInstance.put(`/national-holidays/${id}`, data)
+      const res = response.data
       if (res && res.success) {
         await loadNationalHolidays()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   async function deleteNationalHolidayAction(id) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.deleteNationalHoliday(id)
+      const response = await axiosInstance.delete(`/national-holidays/${id}`)
+      const res = response.data
       if (res && res.success) {
         await loadNationalHolidays()
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   async function loadLocationHistory(employeeId) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.fetchEmployeeLocationHistory(employeeId)
+      const response = await axiosInstance.get(`/employees/${employeeId}/location-history`)
+      const res = response.data
       if (res && res.success && Array.isArray(res.data)) {
         employeeLocationHistories.value[employeeId] = res.data
         return res.data
       }
     } catch (err) {
+      error.value = handleError(err)
       console.error(`[API Error] Fetching location history for ${employeeId} failed:`, err.message)
+    } finally {
+      loading.value = false
     }
     return []
   }
 
   async function loadFaceProfile(employeeId) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.fetchFaceProfile(employeeId)
+      const response = await axiosInstance.get(`/employees/${employeeId}/face-profile`)
+      const res = response.data
       if (res && res.success) {
         faceProfiles.value[employeeId] = res.data
         return res.data
       }
     } catch (err) {
+      error.value = handleError(err)
       console.error(`[API Error] Fetching face profile for ${employeeId} failed:`, err.message)
+    } finally {
+      loading.value = false
     }
     return null
   }
 
   async function registerFaceProfileAction(employeeId, formData) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.registerFaceProfile(employeeId, formData)
+      const response = await axiosInstance.post(`/employees/${employeeId}/face-profile`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      const res = response.data
       if (res && res.success) {
         await loadFaceProfile(employeeId)
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   async function revokeFaceProfileAction(employeeId) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.revokeFaceProfile(employeeId)
+      const response = await axiosInstance.delete(`/employees/${employeeId}/face-profile`)
+      const res = response.data
       if (res && res.success) {
         await loadFaceProfile(employeeId)
       }
       return res
     } catch (err) {
-      return { success: false, message: err.response?.data?.message || err.message }
+      const msg = handleError(err)
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      loading.value = false
     }
   }
 
   async function loadAuditLogs(params = {}) {
+    loading.value = true
+    error.value = null
     try {
-      const res = await api.fetchAuditLogs(params)
+      const response = await axiosInstance.get('/audit-logs', { params })
+      const res = response.data
       if (res && res.success && res.data) {
-        // API Contract 02: audit logs response structure:
-        // res.data.current_page + res.data.data (flat, not nested meta)
         if (Array.isArray(res.data.data)) {
           auditLogs.value = res.data.data
         } else if (Array.isArray(res.data)) {
@@ -134,14 +196,15 @@ export const useSharedServicesStore = defineStore('sharedServices', () => {
         }
       }
     } catch (err) {
+      error.value = handleError(err)
       console.error('[API Error] Fetching audit logs failed:', err.message)
+    } finally {
+      loading.value = false
     }
   }
 
   async function loadInitialData() {
-    // No-op: Each page loads its own data on-demand
-    // National Holidays → loaded by NationalHolidays.vue
-    // Audit Logs → loaded by AuditLogs.vue
+    // On-demand
   }
 
   return {
@@ -149,6 +212,9 @@ export const useSharedServicesStore = defineStore('sharedServices', () => {
     auditLogs,
     employeeLocationHistories,
     faceProfiles,
+    loading,
+    error,
+    success,
     loadNationalHolidays,
     createNationalHolidayAction,
     updateNationalHolidayAction,

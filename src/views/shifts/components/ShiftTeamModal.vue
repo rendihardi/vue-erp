@@ -1,10 +1,11 @@
 <script setup>
 import { ref, watch } from 'vue'
-import { useErpStore } from '../../../store/erp'
+import { useShiftsStore } from '../../../store/shifts'
+import { useEmployeeStore } from '../../../store/employees'
 import BaseButton from '../../../components/BaseButton.vue'
-import * as api from '../../../api'
 
-const erpStore = useErpStore()
+const shiftsStore = useShiftsStore()
+const employeeStore = useEmployeeStore()
 
 const props = defineProps({
   show: {
@@ -27,7 +28,7 @@ const isLoadingEmployees = ref(false)
 const loadAvailableEmployees = async () => {
   try {
     isLoadingEmployees.value = true
-    const res = await api.fetchAvailableShiftTeamEmployees('', 1, 100)
+    const res = await shiftsStore.fetchAvailableShiftTeamEmployees('', 1, 100)
     let freeEmps = []
     if (res && res.success && res.data) {
       freeEmps = Array.isArray(res.data.data) ? res.data.data : (Array.isArray(res.data) ? res.data : [])
@@ -57,7 +58,7 @@ const loadAvailableEmployees = async () => {
     availableEmployees.value = Array.from(empMap.values())
   } catch (err) {
     console.error('Failed to fetch available employees:', err.message)
-    availableEmployees.value = erpStore.employees || []
+    availableEmployees.value = employeeStore.employees || []
   } finally {
     isLoadingEmployees.value = false
   }
@@ -94,13 +95,13 @@ const handleSubmit = async () => {
     isSubmitting.value = true
     let res
     if (props.editingTeam) {
-      res = await erpStore.updateShiftTeamAction(props.editingTeam.id, {
+      res = await shiftsStore.updateShiftTeamAction(props.editingTeam.id, {
         name: form.value.name,
         description: form.value.description,
         member_employee_ids: form.value.member_employee_ids
       })
     } else {
-      res = await erpStore.createShiftTeamAction({
+      res = await shiftsStore.createShiftTeamAction({
         name: form.value.name,
         description: form.value.description,
         member_employee_ids: form.value.member_employee_ids

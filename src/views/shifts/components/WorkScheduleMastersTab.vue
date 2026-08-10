@@ -1,12 +1,12 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useErpStore } from '../../../store/erp'
+import { useShiftsStore } from '../../../store/shifts'
 import BaseBadge from '../../../components/BaseBadge.vue'
 import BaseButton from '../../../components/BaseButton.vue'
 import { ClockIcon, PlusIcon, EditIcon, TrashIcon, RefreshCwIcon, CheckCircle2Icon, CalendarIcon } from '@lucide/vue'
 import { showToastSuccess, showToastError, showToastWarning } from '../../../utils/toast'
 
-const erpStore = useErpStore()
+const shiftsStore = useShiftsStore()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -72,7 +72,7 @@ const formatOffDaysLabel = (offDays) => {
 const loadMastersData = async () => {
   try {
     isLoading.value = true
-    await erpStore.fetchWorkScheduleMastersAction()
+    await shiftsStore.fetchWorkScheduleMastersAction()
   } catch (err) {
     showToastError('Gagal memuat Master Pola Kerja: ' + err.message)
   } finally {
@@ -90,9 +90,9 @@ const handleSaveMaster = async () => {
     isSubmitting.value = true
     let res
     if (masterForm.value.id) {
-      res = await erpStore.updateWorkScheduleMasterAction(masterForm.value.id, masterForm.value)
+      res = await shiftsStore.updateWorkScheduleMasterAction(masterForm.value.id, masterForm.value)
     } else {
-      res = await erpStore.createWorkScheduleMasterAction(masterForm.value)
+      res = await shiftsStore.createWorkScheduleMasterAction(masterForm.value)
     }
 
     if (res && res.success) {
@@ -112,7 +112,7 @@ const handleSaveMaster = async () => {
 const handleDeleteMaster = async (id, name) => {
   if (!confirm(`Apakah Anda yakin ingin menghapus Master Pola Kerja "${name}"?`)) return
   try {
-    const res = await erpStore.deleteWorkScheduleMasterAction(id)
+    const res = await shiftsStore.deleteWorkScheduleMasterAction(id)
     if (res && res.success) {
       showToastSuccess(`🗑️ Master Pola Kerja "${name}" berhasil dihapus.`)
       await loadMastersData()
@@ -236,27 +236,22 @@ onMounted(() => {
           <div class="flex items-center gap-2">
             <span class="font-bold text-slate-900 text-xs">Master Pola Kerja Terdaftar</span>
             <BaseBadge variant="slate">
-              {{ erpStore.workScheduleMasters ? erpStore.workScheduleMasters.length : 0 }} Master
+              {{ shiftsStore.workScheduleMasters ? shiftsStore.workScheduleMasters.length : 0 }} Master
             </BaseBadge>
           </div>
         </div>
 
-        <!-- Skeleton Loading -->
-        <div v-if="isLoading" class="p-8 text-center text-slate-500 font-mono text-xs italic bg-white rounded-xl border border-slate-200">
-          Memuat data Master Pola Kerja...
+        <div v-if="isLoading" class="p-8 text-center text-slate-400 text-xs italic">
+          Memuat daftar master pola kerja...
         </div>
-
-        <!-- Empty State -->
-        <div v-else-if="!erpStore.workScheduleMasters || !erpStore.workScheduleMasters.length" class="p-8 text-center text-slate-500 text-xs italic bg-white rounded-xl border border-dashed border-slate-300">
-          Belum ada data master pola kerja terdaftar. Silakan buat master pola baru di form sebelah kiri.
+        <div v-else-if="!shiftsStore.workScheduleMasters || !shiftsStore.workScheduleMasters.length" class="p-8 text-center text-slate-500 text-xs italic bg-white rounded-xl border border-dashed border-slate-300">
+          Belum ada master pola kerja terdaftar.
         </div>
-
-        <!-- Grid Cards -->
-        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div
-            v-for="m in erpStore.workScheduleMasters"
+        <div v-else class="space-y-3">
+          <div 
+            v-for="m in shiftsStore.workScheduleMasters" 
             :key="m.id"
-            class="p-4 bg-white border border-slate-200 rounded-xl hover:border-slate-300 transition-colors shadow-2xs flex flex-col justify-between gap-4"
+            class="p-4 bg-white border border-slate-200 rounded-xl hover:border-emerald-300 transition-colors shadow-xs flex items-center justify-between gap-4"
           >
             <div>
               <div class="flex items-start justify-between gap-2 mb-2">

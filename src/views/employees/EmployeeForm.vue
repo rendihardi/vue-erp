@@ -1,13 +1,15 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useErpStore } from '../../store/erp'
+import { useEmployeeStore } from '../../store/employees'
+import { useShiftsStore } from '../../store/shifts'
 import BaseButton from '../../components/BaseButton.vue'
 import { ArrowLeftIcon } from '@lucide/vue'
 
 const route = useRoute()
 const router = useRouter()
-const erpStore = useErpStore()
+const employeeStore = useEmployeeStore()
+const shiftsStore = useShiftsStore()
 
 const isEdit = ref(false)
 const employeeId = ref(null)
@@ -28,17 +30,17 @@ const form = ref({
 
 onMounted(async () => {
   await Promise.allSettled([
-    erpStore.loadDepartmentsOnly(),
-    erpStore.loadPositionsOnly(),
-    erpStore.loadOfficeLocationsOnly(),
-    erpStore.fetchShiftsOnlyAction()
+    employeeStore.loadDepartmentsOnly(),
+    employeeStore.loadPositionsOnly(),
+    employeeStore.loadOfficeLocationsOnly(),
+    shiftsStore.fetchShiftsOnlyAction()
   ])
   if (route.params.id) {
     isEdit.value = true
     employeeId.value = route.params.id
     
     // Find employee from store
-    const emp = erpStore.employees.find(e => String(e.id) === String(employeeId.value))
+    const emp = employeeStore.employees.find(e => String(e.id) === String(employeeId.value))
     if (emp) {
       form.value = {
         nik: emp.nik || '',
@@ -64,9 +66,9 @@ const handleSave = async () => {
       if (!payload.password) {
         delete payload.password
       }
-      await erpStore.updateEmployeeAction(employeeId.value, payload)
+      await employeeStore.updateEmployeeAction(employeeId.value, payload)
     } else {
-      await erpStore.createEmployeeAction(payload)
+      await employeeStore.createEmployeeAction(payload)
     }
     router.push('/employees')
   } catch (err) {
@@ -121,21 +123,21 @@ const handleSave = async () => {
           <label class="block font-bold text-slate-500 uppercase mb-1">Departemen</label>
           <select v-model="form.department_id" required class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:outline-none focus:border-emerald-500 text-xs">
             <option value="">-- Pilih Departemen --</option>
-            <option v-for="dept in erpStore.departments" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
+            <option v-for="dept in employeeStore.departments" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
           </select>
         </div>
         <div>
           <label class="block font-bold text-slate-500 uppercase mb-1">Jabatan</label>
           <select v-model="form.position_id" required class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:outline-none focus:border-emerald-500 text-xs">
             <option value="">-- Pilih Jabatan --</option>
-            <option v-for="pos in erpStore.positions" :key="pos.id" :value="pos.id">{{ pos.name }}</option>
+            <option v-for="pos in employeeStore.positions" :key="pos.id" :value="pos.id">{{ pos.name }}</option>
           </select>
         </div>
         <div>
           <label class="block font-bold text-slate-500 uppercase mb-1">Lokasi Kantor Cabang</label>
           <select v-model="form.office_location_id" required class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:outline-none focus:border-emerald-500 text-xs">
             <option value="">-- Pilih Lokasi Kantor --</option>
-            <option v-for="loc in erpStore.officeLocations" :key="loc.id" :value="loc.id">{{ loc.name }}</option>
+            <option v-for="loc in employeeStore.officeLocations" :key="loc.id" :value="loc.id">{{ loc.name }}</option>
           </select>
         </div>
         <div>

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useErpStore } from '../../store/erp'
+import { useShiftsStore } from '../../store/shifts'
 import BaseButton from '../../components/BaseButton.vue'
 import BasePagination from '../../components/BasePagination.vue'
 import BaseBadge from '../../components/BaseBadge.vue'
@@ -33,7 +33,7 @@ import {
 
 const route = useRoute()
 const router = useRouter()
-const erpStore = useErpStore()
+const shiftsStore = useShiftsStore()
 
 const activeTab = ref(route.query.tab || 'shifts')
 
@@ -79,7 +79,7 @@ const patternCurrentPage = ref(1)
 const fetchFilteredRotationPatterns = async (page = 1) => {
   patternCurrentPage.value = page
   try {
-    await erpStore.fetchRotationPatternsFilteredAction({
+    await shiftsStore.fetchRotationPatternsFilteredAction({
       page: patternCurrentPage.value,
       per_page: 9,
       search: patternSearchQuery.value
@@ -91,7 +91,7 @@ const fetchFilteredRotationPatterns = async (page = 1) => {
 
 const fetchFilteredRosterPlans = async (page = 1) => {
   try {
-    await erpStore.fetchRosterPlansFilteredAction({ page, per_page: 9 })
+    await shiftsStore.fetchRosterPlansFilteredAction({ page, per_page: 9 })
   } catch (err) {
     console.warn('[Roster Plans Fetch Warning]', err.message)
   }
@@ -116,7 +116,7 @@ const handleAssignWorkSchedule = async () => {
   }
   try {
     isAssigningSchedule.value = true
-    const res = await erpStore.assignWorkScheduleAction({
+    const res = await shiftsStore.assignWorkScheduleAction({
       employee_id: assignEmpId.value,
       schedule_type: assignScheduleType.value,
       shift_id: assignScheduleType.value === 'fixed' ? assignShiftId.value : null,
@@ -144,7 +144,7 @@ const handleAssignRoster = async () => {
   }
   try {
     isAssigningRoster.value = true
-    const res = await erpStore.assignRosterAction({
+    const res = await shiftsStore.assignRosterAction({
       shift_id: selectedShift.value,
       start_date: startDate.value,
       end_date: endDate.value,
@@ -167,7 +167,7 @@ const handleAssignRoster = async () => {
 }
 
 const handleValidateRosterPlan = async (planId) => {
-  const res = await erpStore.validateRosterPlanAction(planId)
+  const res = await shiftsStore.validateRosterPlanAction(planId)
   if (res && res.success) showValidationModal.value = true
 }
 
@@ -182,7 +182,7 @@ const handleGenerateRosterPlan = async (planId) => {
 
   showToastInfo('Sedang meng-generate roster harian...')
   try {
-    const res = await erpStore.generateRosterPlanAction(planId)
+    const res = await shiftsStore.generateRosterPlanAction(planId)
     if (res && res.success) {
       showToastSuccess(`⚡ Berhasil membuat ${res.data?.created_count || 0} entri roster harian!`)
     } else {
@@ -203,7 +203,7 @@ const handlePublishRosterPlan = async (planId) => {
   if (!isConfirmed) return
 
   try {
-    const res = await erpStore.publishRosterPlanAction(planId)
+    const res = await shiftsStore.publishRosterPlanAction(planId)
     if (res && res.success) {
       showToastSuccess('🚀 Roster Plan kini aktif di Mobile App & Presensi!')
     } else {
@@ -224,7 +224,7 @@ const handleLockRosterPlan = async (planId) => {
   if (!isConfirmed) return
 
   try {
-    const res = await erpStore.lockRosterPlanAction(planId)
+    const res = await shiftsStore.lockRosterPlanAction(planId)
     if (res && res.success) {
       showToastSuccess('🔒 Roster Plan resmi dikunci!')
     } else {
@@ -244,7 +244,7 @@ const handlePeerRespond = async (swapId, responseType) => {
     })
     if (rejectionReason === null) return
   }
-  await erpStore.respondShiftSwapPeerAction(swapId, responseType, rejectionReason)
+  await shiftsStore.respondShiftSwapPeerAction(swapId, responseType, rejectionReason)
   showToastSuccess('Respon pertukaran shift berhasil diperbarui!')
 }
 
@@ -257,7 +257,7 @@ const handleHrApprove = async (swapId, status) => {
     })
     if (rejectionReason === null) return
   }
-  await erpStore.approveShiftSwapAction(swapId, status, rejectionReason)
+  await shiftsStore.approveShiftSwapAction(swapId, status, rejectionReason)
   showToastSuccess(status === 'approved' ? '✅ Pertukaran shift disetujui HR Admin!' : '❌ Pertukaran shift ditolak HR Admin!')
 }
 
@@ -269,7 +269,7 @@ const handleDeleteShift = async (id) => {
     icon: 'error'
   })
   if (!isConfirmed) return
-  await erpStore.deleteShiftAction(id)
+  await shiftsStore.deleteShiftAction(id)
   showToastSuccess('🗑️ Shift kerja berhasil dihapus!')
 }
 
@@ -281,7 +281,7 @@ const handleDeleteTeam = async (team) => {
     icon: 'error'
   })
   if (!isConfirmed) return
-  await erpStore.deleteShiftTeamAction(team.id)
+  await shiftsStore.deleteShiftTeamAction(team.id)
   showToastSuccess(`🗑️ Tim shift '${team.name}' berhasil dihapus!`)
 }
 
@@ -294,7 +294,7 @@ const handleDeletePattern = async (pattern) => {
   })
   if (!isConfirmed) return
   try {
-    const res = await erpStore.deleteRotationPatternAction(pattern.id)
+    const res = await shiftsStore.deleteRotationPatternAction(pattern.id)
     if (res && res.success) {
       showToastSuccess(`🗑️ Pola rotasi '${pattern.name}' berhasil dihapus!`)
     } else {
@@ -308,15 +308,15 @@ const handleDeletePattern = async (pattern) => {
 // Lazy load data per tab dynamically on demand
 const loadDataForTab = (tab) => {
   if (tab === 'shifts') {
-    erpStore.fetchShiftsOnlyAction()
+    shiftsStore.fetchShiftsOnlyAction()
   } else if (tab === 'patterns') {
     fetchFilteredRotationPatterns(1)
   } else if (tab === 'teams') {
-    erpStore.fetchShiftTeamsOnlyAction()
+    shiftsStore.fetchShiftTeamsOnlyAction()
   } else if (tab === 'plans' || tab === 'roster-plans') {
     fetchFilteredRosterPlans(1)
   } else if (tab === 'swaps') {
-    erpStore.fetchShiftSwapsOnlyAction()
+    shiftsStore.fetchShiftSwapsOnlyAction()
   }
 }
 
@@ -423,7 +423,7 @@ onMounted(() => {
     <!-- TAB 1: MASTER SHIFTS -->
     <div v-if="activeTab === 'shifts'" class="grid grid-cols-1 md:grid-cols-3 gap-6">
       <div 
-        v-for="sf in erpStore.shifts" 
+        v-for="sf in shiftsStore.shifts" 
         :key="sf.id"
         class="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col justify-between"
       >
@@ -449,7 +449,7 @@ onMounted(() => {
           Toleransi keterlambatan: {{ sf.gracePeriodMinutes }} Menit
         </div>
       </div>
-      <div v-if="!erpStore.shifts.length" class="col-span-3 text-center text-slate-400 italic py-8 bg-white border border-slate-200 rounded-2xl">
+      <div v-if="!shiftsStore.shifts.length" class="col-span-3 text-center text-slate-400 italic py-8 bg-white border border-slate-200 rounded-2xl">
         Belum ada data shift terdaftar.
       </div>
     </div>
@@ -490,7 +490,7 @@ onMounted(() => {
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div 
-          v-for="pattern in (erpStore.rotationPatterns || [])" 
+          v-for="pattern in (shiftsStore.rotationPatterns || [])" 
           :key="pattern.id"
           class="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col justify-between group relative"
         >
@@ -534,7 +534,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <div v-if="!erpStore.rotationPatterns || !erpStore.rotationPatterns.length" class="col-span-3 p-10 text-center bg-white border border-dashed border-slate-200 rounded-2xl">
+        <div v-if="!shiftsStore.rotationPatterns || !shiftsStore.rotationPatterns.length" class="col-span-3 p-10 text-center bg-white border border-dashed border-slate-200 rounded-2xl">
           <RefreshCwIcon class="size-8 text-slate-300 mx-auto mb-2" />
           <p class="text-xs text-slate-500 font-medium mb-3">Belum ada pola rotasi khusus terdaftar.</p>
           <BaseButton variant="primary-emerald" @click="patternTeam = null; showPatternModal = true">
@@ -545,14 +545,14 @@ onMounted(() => {
       </div>
 
       <!-- PAGINATION BAR FOR ROTATION PATTERNS -->
-      <div v-if="erpStore.rotationPatternsPaginated && erpStore.rotationPatternsPaginated.total > 0" class="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+      <div v-if="shiftsStore.rotationPatternsPaginated && shiftsStore.rotationPatternsPaginated.total > 0" class="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
         <span class="text-xs text-slate-500 font-mono">
-          Total Pola Rotasi: <strong>{{ erpStore.rotationPatternsPaginated.total }}</strong>
+          Total Pola Rotasi: <strong>{{ shiftsStore.rotationPatternsPaginated.total }}</strong>
         </span>
         <BasePagination
-          :current-page="erpStore.rotationPatternsPaginated.current_page || 1"
-          :last-page="erpStore.rotationPatternsPaginated.last_page || 1"
-          :total="erpStore.rotationPatternsPaginated.total || 0"
+          :current-page="shiftsStore.rotationPatternsPaginated.current_page || 1"
+          :last-page="shiftsStore.rotationPatternsPaginated.last_page || 1"
+          :total="shiftsStore.rotationPatternsPaginated.total || 0"
           :per-page="9"
           @page-change="(p) => fetchFilteredRotationPatterns(p)"
         />
@@ -618,7 +618,7 @@ onMounted(() => {
           </thead>
           <tbody class="divide-y divide-slate-100 font-sans">
             <tr 
-              v-for="sw in erpStore.shiftSwaps" 
+              v-for="sw in shiftsStore.shiftSwaps" 
               :key="sw.id"
               class="hover:bg-slate-50/50 transition-colors"
             >
@@ -673,7 +673,7 @@ onMounted(() => {
                 </div>
               </td>
             </tr>
-            <tr v-if="!erpStore.shiftSwaps.length">
+            <tr v-if="!shiftsStore.shiftSwaps.length">
               <td colspan="6" class="py-8 text-center text-slate-400 italic font-medium">
                 Tidak ada permohonan pertukaran shift kerja aktif.
               </td>
@@ -702,7 +702,7 @@ onMounted(() => {
       :show="showTeamModal"
       :editing-team="editingTeam"
       @close="showTeamModal = false"
-      @saved="erpStore.fetchShiftTeamsOnlyAction()"
+      @saved="shiftsStore.fetchShiftTeamsOnlyAction()"
     />
 
     <RotationPatternModal
@@ -721,7 +721,7 @@ onMounted(() => {
     <ShiftSwapModal
       :show="showSwapModal"
       @close="showSwapModal = false"
-      @submitted="erpStore.fetchShiftSwapsOnlyAction()"
+      @submitted="shiftsStore.fetchShiftSwapsOnlyAction()"
     />
   </main>
 </template>

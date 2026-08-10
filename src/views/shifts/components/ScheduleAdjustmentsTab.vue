@@ -1,13 +1,14 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useErpStore } from '../../../store/erp'
+import { useShiftsStore } from '../../../store/shifts'
+import { useEmployeeStore } from '../../../store/employees'
 import BaseBadge from '../../../components/BaseBadge.vue'
 import BaseButton from '../../../components/BaseButton.vue'
 import { SlidersIcon, UserIcon, CalendarIcon, ClockIcon, CheckCircle2Icon, RefreshCwIcon, AlertCircleIcon } from '@lucide/vue'
 import { showToastSuccess, showToastError, showToastWarning } from '../../../utils/toast'
-import * as api from '../../../api'
 
-const erpStore = useErpStore()
+const shiftsStore = useShiftsStore()
+const employeeStore = useEmployeeStore()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -45,10 +46,10 @@ const toggleEmployeeSelection = (empId) => {
 }
 
 const selectAllEmployees = () => {
-  if (form.value.employee_ids.length === erpStore.employees.length) {
+  if (form.value.employee_ids.length === employeeStore.employees.length) {
     form.value.employee_ids = []
   } else {
-    form.value.employee_ids = erpStore.employees.map(e => e.id)
+    form.value.employee_ids = employeeStore.employees.map(e => e.id)
   }
 }
 
@@ -77,7 +78,7 @@ const handleSaveAdjustment = async () => {
       notes: form.value.notes || 'Manual Schedule Adjustment / Override via Tab Penyesuaian'
     }
 
-    const res = await erpStore.assignRosterAction(payload)
+    const res = await shiftsStore.assignRosterAction(payload)
     if (res && res.success) {
       showToastSuccess(`✅ Penyesuaian jadwal harian untuk ${form.value.employee_ids.length} karyawan berhasil diterapkan!`)
       resetForm()
@@ -92,11 +93,11 @@ const handleSaveAdjustment = async () => {
 }
 
 onMounted(async () => {
-  if (!erpStore.employees || !erpStore.employees.length) {
-    await erpStore.loadEmployeesOnly()
+  if (!employeeStore.employees || !employeeStore.employees.length) {
+    await employeeStore.loadEmployeesOnly()
   }
-  if (!erpStore.shifts || !erpStore.shifts.length) {
-    await erpStore.fetchShiftsOnlyAction()
+  if (!shiftsStore.shifts || !shiftsStore.shifts.length) {
+    await shiftsStore.fetchShiftsOnlyAction()
   }
 })
 </script>
@@ -145,13 +146,13 @@ onMounted(async () => {
             <div class="flex items-center justify-between mb-1.5">
               <label class="block font-semibold text-slate-700 text-xs">Pilih Karyawan <span class="text-rose-600">*</span></label>
               <button type="button" @click="selectAllEmployees" class="text-xs font-semibold text-slate-700 hover:text-slate-900 hover:underline">
-                {{ form.employee_ids.length === erpStore.employees.length ? 'Batal Semua' : 'Pilih Semua' }}
+                {{ form.employee_ids.length === employeeStore.employees.length ? 'Batal Semua' : 'Pilih Semua' }}
               </button>
             </div>
 
             <div class="max-h-44 overflow-y-auto bg-slate-50 border border-slate-200 rounded-lg p-2 space-y-1 divide-y divide-slate-100">
               <label
-                v-for="emp in erpStore.employees"
+                v-for="emp in employeeStore.employees"
                 :key="emp.id"
                 class="flex items-center justify-between p-1.5 hover:bg-white rounded cursor-pointer transition-colors pt-1.5"
               >
@@ -200,7 +201,7 @@ onMounted(async () => {
             <label class="block font-semibold text-slate-700 text-xs mb-1">Pilih Shift Pengganti <span class="text-rose-600">*</span></label>
             <select v-model="form.shift_id" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-slate-800 focus:ring-1 focus:ring-slate-800 font-medium">
               <option value="">-- Pilih Shift Kerja --</option>
-              <option v-for="sf in erpStore.shifts" :key="sf.id" :value="sf.id">
+              <option v-for="sf in shiftsStore.shifts" :key="sf.id" :value="sf.id">
                 {{ sf.name }} ({{ sf.startTime }} - {{ sf.endTime }})
               </option>
             </select>

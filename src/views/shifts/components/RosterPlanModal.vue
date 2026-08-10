@@ -1,9 +1,10 @@
 <script setup>
-import { ref } from 'vue'
-import { useErpStore } from '../../../store/erp'
+import { ref, watch } from 'vue'
+import { useShiftsStore } from '../../../store/shifts'
 import BaseButton from '../../../components/BaseButton.vue'
+import { showToastSuccess, showToastError, showToastWarning } from '../../../utils/toast'
 
-const erpStore = useErpStore()
+const shiftsStore = useShiftsStore()
 
 const props = defineProps({
   show: {
@@ -28,16 +29,13 @@ const form = ref({
 })
 const isSubmitting = ref(false)
 
-import { watch } from 'vue'
-import { showToastSuccess, showToastError, showToastWarning } from '../../../utils/toast'
-
 watch([() => props.show, () => props.editingPlan], ([isShowing, plan]) => {
   if (isShowing) {
-    if (!erpStore.shiftTeams || !erpStore.shiftTeams.length) {
-      erpStore.fetchShiftTeamsOnlyAction()
+    if (!shiftsStore.shiftTeams || !shiftsStore.shiftTeams.length) {
+      shiftsStore.fetchShiftTeamsOnlyAction()
     }
-    if (!erpStore.rotationPatterns || !erpStore.rotationPatterns.length) {
-      erpStore.fetchRotationPatternsFilteredAction({ page: 1, per_page: 100 })
+    if (!shiftsStore.rotationPatterns || !shiftsStore.rotationPatterns.length) {
+      shiftsStore.fetchRotationPatternsFilteredAction({ page: 1, per_page: 100 })
     }
     if (plan && plan.id) {
       form.value = {
@@ -81,7 +79,7 @@ const handleSubmit = async () => {
     let res
     if (props.editingPlan && props.editingPlan.id) {
       // ✏️ Mode Edit: PUT /api/v1/roster-plans/{id}
-      res = await erpStore.updateRosterPlanAction(props.editingPlan.id, payload)
+      res = await shiftsStore.updateRosterPlanAction(props.editingPlan.id, payload)
     } else {
       // ➕ Mode Tambah Baru: POST /api/v1/roster-plans
       if (!form.value.shift_team_id) {
@@ -89,7 +87,7 @@ const handleSubmit = async () => {
         isSubmitting.value = false
         return
       }
-      res = await erpStore.createRosterPlanAction(payload)
+      res = await shiftsStore.createRosterPlanAction(payload)
     }
 
     if (res && res.success) {
@@ -154,7 +152,7 @@ const handleSubmit = async () => {
           </label>
           <select v-model="form.shift_team_id" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-medium text-slate-800 focus:outline-none focus:border-emerald-500">
             <option value="">-- Pilih Tim Shift Target --</option>
-            <option v-for="team in erpStore.shiftTeams" :key="team.id" :value="team.id">
+            <option v-for="team in shiftsStore.shiftTeams" :key="team.id" :value="team.id">
               {{ team.name }} ({{ team.activeMembersCount || 0 }} Anggota)
             </option>
           </select>
@@ -167,7 +165,7 @@ const handleSubmit = async () => {
           </label>
           <select v-model="form.rotation_pattern_id" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-medium text-slate-800 focus:outline-none focus:border-emerald-500">
             <option value="">-- Ikuti Pola Rotasi Bawaan Tim Shift --</option>
-            <option v-for="pattern in (erpStore.rotationPatterns || [])" :key="pattern.id" :value="pattern.id">
+            <option v-for="pattern in (shiftsStore.rotationPatterns || [])" :key="pattern.id" :value="pattern.id">
               {{ pattern.name }} ({{ (pattern.rotation_sequence || pattern.sequence || []).length }} Siklus Langkah)
             </option>
           </select>

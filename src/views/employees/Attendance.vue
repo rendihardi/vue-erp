@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useErpStore } from '../../store/erp'
+import { useEmployeeStore } from '../../store/employees'
+import { useAttendanceStore } from '../../store/attendance'
 import BaseBadge from '../../components/BaseBadge.vue'
 import BaseButton from '../../components/BaseButton.vue'
 import LoadingSpinner from '../../components/LoadingSpinner.vue'
@@ -10,7 +11,8 @@ import {
   MapPinIcon
 } from '@lucide/vue'
 
-const erpStore = useErpStore()
+const employeeStore = useEmployeeStore()
+const attendanceStore = useAttendanceStore()
 
 const selectedEmployee = ref('')
 const checkInStatus = ref('Ontime')
@@ -18,7 +20,7 @@ const isLoading = ref(true)
 
 const triggerSimulatedCheckIn = async () => {
   if (!selectedEmployee.value) return
-  await erpStore.checkInEmployee(selectedEmployee.value, checkInStatus.value)
+  await employeeStore.checkInEmployee(selectedEmployee.value, checkInStatus.value)
   selectedEmployee.value = '' // Reset
 }
 
@@ -26,8 +28,8 @@ onMounted(async () => {
   try {
     isLoading.value = true
     await Promise.allSettled([
-      erpStore.loadEmployeesOnly(),
-      erpStore.loadAttendanceSummaryOnly()
+      employeeStore.loadEmployeesOnly(),
+      employeeStore.loadAttendanceSummaryOnly()
     ])
   } finally {
     isLoading.value = false
@@ -58,7 +60,7 @@ onMounted(async () => {
         <div>
           <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 font-mono">Total Karyawan</span>
           <span class="block font-black text-2xl text-slate-900 tracking-tight font-display">
-            {{ erpStore.totalEmployees }}
+            {{ employeeStore.employees.length || 0 }}
           </span>
         </div>
         <div class="size-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500">
@@ -70,7 +72,7 @@ onMounted(async () => {
         <div>
           <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 font-mono">Rasio Kehadiran Hari Ini</span>
           <span class="block font-black text-2xl text-emerald-600 tracking-tight font-display">
-            {{ erpStore.todayAttendanceRate }}%
+            {{ attendanceStore.todayAttendanceRate || 100 }}%
           </span>
         </div>
         <div class="size-10 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
@@ -89,47 +91,77 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- LIVE FEED -->
-    <div class="w-full mt-6">
-      <!-- Live Feed -->
-      <section class="p-6 rounded-2xl border border-slate-100/80 bg-white flex flex-col min-h-[320px] shadow-xs">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="font-display font-bold text-base text-slate-800 flex items-center gap-2">
-            <div class="size-2 rounded-full bg-emerald-500 animate-pulse"></div>
-            <span>Log Absensi Terverifikasi Geofence</span>
-          </h2>
-          <span class="text-[10px] text-slate-400 font-bold uppercase font-mono tracking-wider">FastAPI matching online</span>
-        </div>
+    <!-- MAIN TWO COLUMN WORKSPACE -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+      <!-- SIMULATE CHECK-IN FORM -->
+      <section class="p-6 rounded-2xl border border-slate-200/80 bg-white shadow-sm flex flex-col justify-between" aria-labelledby="sim-title">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h2 id="sim-title" class="font-display font-bold text-base text-slate-800 flex items-center gap-2">
+              <FingerprintIcon class="size-4.5 text-emerald-600" aria-hidden="true" />
+              <span>Simulasi Presensi GPS &amp; Selfie</span>
+            </h2>
+            <BaseBadge variant="success">API v1 Connected</BaseBadge>
+          </div>
+          <p class="text-xs text-slate-500 mb-6 leading-relaxed">
+            Gunakan panel ini untuk mensimulasikan panggilan API Presensi Masuk (Check-In) karyawan secara langsung.
+          </p>
 
-        <!-- Feed List -->
-        <div class="flex-1 overflow-y-auto max-h-[350px]">
-          <!-- Loading state -->
-          <div v-if="isLoading" class="flex flex-col gap-2.5">
-            <div 
-              v-for="i in 4" 
-              :key="i"
-              class="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-3 animate-pulse"
-            >
-              <div class="flex items-center gap-3">
-                <div class="size-8 rounded-lg bg-slate-200/70"></div>
-                <div class="flex flex-col gap-1.5">
-                  <div class="h-3 w-28 bg-slate-200/70 rounded-md"></div>
-                  <div class="h-2.5 w-16 bg-slate-200/50 rounded-md"></div>
-                </div>
-              </div>
-              <div class="flex items-center gap-4">
-                <div class="flex flex-col gap-1.5 items-end">
-                  <div class="h-3 w-32 bg-slate-200/70 rounded-md"></div>
-                  <div class="h-2.5 w-20 bg-slate-200/50 rounded-md"></div>
-                </div>
-                <div class="h-5 w-14 bg-slate-200/70 rounded-full"></div>
+          <form @submit.prevent="triggerSimulatedCheckIn" class="flex flex-col gap-4 text-xs font-sans">
+            <div>
+              <label class="block font-bold text-slate-700 uppercase tracking-wider text-[10px] mb-1.5">Pilih Karyawan</label>
+              <select v-model="selectedEmployee" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-emerald-500 font-medium text-slate-800">
+                <option value="">-- Pilih Karyawan --</option>
+                <option v-for="emp in employeeStore.employees" :key="emp.id" :value="emp.name">
+                  {{ emp.name }} ({{ emp.dept }})
+                </option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block font-bold text-slate-700 uppercase tracking-wider text-[10px] mb-1.5">Status Presensi</label>
+              <select v-model="checkInStatus" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-emerald-500 font-medium text-slate-800">
+                <option value="Ontime">Tepat Waktu (Ontime)</option>
+                <option value="Late">Terlambat (Late)</option>
+              </select>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-2.5 text-slate-500 text-[11px]">
+              <MapPinIcon class="size-4 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
+              <div>
+                <span class="block font-bold text-slate-700 font-mono">Geofence Location:</span>
+                <span>Kantor Pusat Jakarta (-6.2088, 106.8456) &bull; Radius Valid: 100m</span>
               </div>
             </div>
+
+            <BaseButton variant="primary-emerald" type="submit" class="w-full justify-center mt-2">
+              <FingerprintIcon class="size-4" aria-hidden="true" />
+              <span>Kirim Simulasi Check-In API</span>
+            </BaseButton>
+          </form>
+        </div>
+      </section>
+
+      <!-- LIVE ATTENDANCE AUDIT LOG STREAM -->
+      <section class="lg:col-span-2 p-6 rounded-2xl border border-slate-200/80 bg-white shadow-sm" aria-labelledby="stream-title">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h2 id="stream-title" class="font-display font-bold text-base text-slate-800">
+              Live Audit Log Kehadiran Realtime
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">Daftar presensi karyawan yang terverifikasi GPS hari ini.</p>
           </div>
-          <!-- Data state -->
-          <ul v-else class="flex flex-col gap-2.5">
+          <span class="size-2.5 rounded-full bg-emerald-500 animate-pulse" title="Live Stream Active" aria-hidden="true"></span>
+        </div>
+
+        <div v-if="isLoading" class="py-12 flex justify-center">
+          <LoadingSpinner />
+        </div>
+
+        <div v-else>
+          <ul class="flex flex-col gap-2.5">
             <li 
-              v-for="log in erpStore.attendanceLogs" 
+              v-for="log in attendanceStore.attendanceLogs" 
               :key="log.id"
               class="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
             >
@@ -154,7 +186,7 @@ onMounted(async () => {
                 </BaseBadge>
               </div>
             </li>
-            <li v-if="!erpStore.attendanceLogs.length" class="py-6 text-center text-slate-400 italic">
+            <li v-if="!attendanceStore.attendanceLogs.length" class="py-6 text-center text-slate-400 italic">
               Belum ada absensi terverifikasi hari ini.
             </li>
           </ul>

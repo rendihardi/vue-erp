@@ -1,7 +1,8 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useErpStore } from '../../store/erp'
+import { useEmployeeStore } from '../../store/employees'
+import { useLeavesStore } from '../../store/leaves'
 import BaseBadge from '../../components/BaseBadge.vue'
 import BaseButton from '../../components/BaseButton.vue'
 import BasePagination from '../../components/BasePagination.vue'
@@ -20,12 +21,11 @@ import {
   PaperclipIcon
 } from '@lucide/vue'
 
-import { useLeavesStore } from '../../store/leaves'
 const leavesStore = useLeavesStore()
+const employeeStore = useEmployeeStore()
 
 const route = useRoute()
 const router = useRouter()
-const erpStore = useErpStore()
 
 const activeTab = ref(route.query.tab || 'requests')
 
@@ -93,8 +93,8 @@ const openAdjustModal = (balanceItem = null) => {
     }
   } else {
     adjustBalanceForm.value = {
-      employee_id: erpStore.employees?.[0]?.id || '',
-      leave_type_id: erpStore.leaveTypes?.[0]?.id || '',
+      employee_id: employeeStore.employees?.[0]?.id || '',
+      leave_type_id: leavesStore.leaveTypes?.[0]?.id || '',
       year: new Date().getFullYear(),
       allocated: 12
     }
@@ -141,7 +141,7 @@ const handleCreateLeaveRequest = async () => {
   }
 
   // Check if chosen leave type requires attachment
-  const selectedType = erpStore.leaveTypes.find(t => String(t.id) === String(requestForm.value.leave_type_id))
+  const selectedType = leavesStore.leaveTypes.find(t => String(t.id) === String(requestForm.value.leave_type_id))
   if (selectedType && selectedType.requires_attachment && !attachmentFile.value) {
     showWarning('Lampiran Wajib', `Jenis cuti "${selectedType.name}" mewajibkan lampiran berkas pendukung (surat sakit/dokumen medis).`)
     return
@@ -158,7 +158,7 @@ const handleCreateLeaveRequest = async () => {
       formData.append('attachment', attachmentFile.value)
     }
 
-    await erpStore.requestLeaveAction(formData)
+    await leavesStore.requestLeaveAction(formData)
     showSuccess('Permohonan Terkirim!', 'Permohonan cuti berhasil diajukan! (Kalkulasi hari otomatis mengabaikan weekend & libur nasional).')
     showRequestModal.value = false
     requestForm.value = { leave_type_id: '', start_date: '', end_date: '', reason: '' }
@@ -180,7 +180,7 @@ const handleApprove = async (leaveId) => {
   if (!isConfirmed) return
 
   try {
-    await erpStore.approveLeaveAction(leaveId, 'approved')
+    await leavesStore.approveLeaveAction(leaveId, 'approved')
     showSuccess('Cuti Disetujui!', 'Permohonan cuti berhasil disetujui & saldo cuti otomatis terpotong.')
   } catch (err) {
     showError('Persetujuan Gagal', err.message)
@@ -195,14 +195,12 @@ const handleReject = async (leaveId) => {
   if (rejectionReason === null) return
 
   try {
-    await erpStore.approveLeaveAction(leaveId, 'rejected', rejectionReason)
+    await leavesStore.approveLeaveAction(leaveId, 'rejected', rejectionReason)
     showSuccess('Permohonan Ditolak', 'Permohonan cuti berhasil ditolak.')
   } catch (err) {
     showError('Penolakan Gagal', err.message)
   }
 }
-
-
 
 const handleDeleteLeaveType = async (id) => {
   const isConfirmed = await confirmAction({
@@ -214,7 +212,7 @@ const handleDeleteLeaveType = async (id) => {
   if (!isConfirmed) return
 
   try {
-    await erpStore.deleteLeaveTypeAction(id)
+    await leavesStore.deleteLeaveTypeAction(id)
     showToastSuccess('🗑️ Kebijakan cuti berhasil dihapus!')
     showSuccess('Kebijakan Dihapus', 'Kebijakan jenis cuti berhasil dihapus.')
   } catch (err) {
@@ -225,7 +223,7 @@ const handleDeleteLeaveType = async (id) => {
 onMounted(async () => {
   await Promise.allSettled([
     leavesStore.loadInitialData(),
-    erpStore.loadEmployeesOnly()
+    employeeStore.loadEmployeesOnly()
   ])
 })
 </script>
@@ -425,7 +423,7 @@ onMounted(async () => {
               <label class="block font-semibold text-slate-700 text-xs mb-1.5">Pilih Karyawan <span class="text-rose-600">*</span></label>
               <select v-model="adjustBalanceForm.employee_id" required class="w-full bg-white border border-slate-200 rounded-lg p-2.5 focus:outline-none focus:border-slate-800 focus:ring-1 focus:ring-slate-800 font-medium text-slate-900">
                 <option value="">-- Pilih Karyawan --</option>
-                <option v-for="emp in (erpStore.employees || [])" :key="emp.id" :value="emp.id">
+                <option v-for="emp in (employeeStore.employees || [])" :key="emp.id" :value="emp.id">
                   {{ emp.name }} ({{ emp.nik || emp.employee_code || 'EMP' }}) &bull; {{ emp.dept || emp.department?.name || 'Kantor Pusat' }}
                 </option>
               </select>
@@ -435,7 +433,7 @@ onMounted(async () => {
               <label class="block font-semibold text-slate-700 text-xs mb-1.5">Jenis Cuti <span class="text-rose-600">*</span></label>
               <select v-model="adjustBalanceForm.leave_type_id" required class="w-full bg-white border border-slate-200 rounded-lg p-2.5 focus:outline-none focus:border-slate-800 focus:ring-1 focus:ring-slate-800 font-medium text-slate-900">
                 <option value="">-- Pilih Jenis Cuti --</option>
-                <option v-for="lt in erpStore.leaveTypes" :key="lt.id" :value="lt.id">
+                <option v-for="lt in leavesStore.leaveTypes" :key="lt.id" :value="lt.id">
                   {{ lt.name }} (Standar: {{ lt.quota }} Hari)
                 </option>
               </select>
@@ -516,7 +514,7 @@ onMounted(async () => {
           </thead>
           <tbody class="divide-y divide-slate-100 font-sans">
             <tr 
-              v-for="lv in erpStore.leaves" 
+              v-for="lv in leavesStore.leaves" 
               :key="lv.id"
               class="hover:bg-slate-50/80 transition-colors"
             >
@@ -580,7 +578,7 @@ onMounted(async () => {
       <BasePagination
         :current-page="1"
         :last-page="1"
-        :total="erpStore.leaves ? erpStore.leaves.length : 0"
+        :total="leavesStore.leaves ? leavesStore.leaves.length : 0"
         :per-page="10"
         @page-change="() => {}"
       />
@@ -604,7 +602,7 @@ onMounted(async () => {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 font-sans">
-            <tr v-for="item in erpStore.leaveCalendar" :key="item.id" class="hover:bg-slate-50/80 transition-colors">
+            <tr v-for="item in leavesStore.leaveCalendar" :key="item.id" class="hover:bg-slate-50/80 transition-colors">
               <td class="py-3.5 px-4 font-bold text-slate-800">{{ item.employee_name || item.employee?.name || item.name || 'Karyawan' }}</td>
               <td class="py-3.5 px-4 text-slate-700 font-semibold text-emerald-700">{{ item.leave_type_name || item.leave_type?.name || item.leave_type || item.type || 'Cuti Tahunan' }}</td>
               <td class="py-3.5 px-4 font-mono text-slate-600">{{ item.start_date }} s/d {{ item.end_date }}</td>
@@ -612,7 +610,7 @@ onMounted(async () => {
                 <BaseBadge variant="success">Sedang Cuti</BaseBadge>
               </td>
             </tr>
-            <tr v-if="!erpStore.leaveCalendar || erpStore.leaveCalendar.length === 0">
+            <tr v-if="!leavesStore.leaveCalendar || leavesStore.leaveCalendar.length === 0">
               <td colspan="4" class="py-8 text-center text-slate-400 font-medium">
                 Tidak ada anggota tim yang sedang cuti pada bulan ini.
               </td>
@@ -641,7 +639,7 @@ onMounted(async () => {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 font-sans">
-            <tr v-for="lt in erpStore.leaveTypes" :key="lt.id" class="hover:bg-slate-50/80 transition-colors">
+            <tr v-for="lt in leavesStore.leaveTypes" :key="lt.id" class="hover:bg-slate-50/80 transition-colors">
               <td class="py-3.5 px-4 font-bold text-slate-800">{{ lt.name }}</td>
               <td class="py-3.5 px-4 font-mono text-slate-600">{{ lt.code }}</td>
               <td class="py-3.5 px-4 font-medium text-slate-700">{{ lt.quota }} Hari</td>
@@ -676,7 +674,7 @@ onMounted(async () => {
             <label class="block font-bold text-slate-700 uppercase tracking-wider text-[10px] mb-1.5">Jenis Cuti</label>
             <select v-model="requestForm.leave_type_id" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-emerald-500 font-medium text-slate-800">
               <option value="">-- Pilih Jenis Cuti --</option>
-              <option v-for="lt in erpStore.leaveTypes" :key="lt.id" :value="lt.id">
+              <option v-for="lt in leavesStore.leaveTypes" :key="lt.id" :value="lt.id">
                 {{ lt.name }} (Kuota: {{ lt.quota }} Hari) {{ lt.requires_attachment ? '*Wajib Lampiran' : '' }}
               </option>
             </select>
@@ -727,7 +725,7 @@ onMounted(async () => {
             <label class="block font-bold text-slate-700 uppercase tracking-wider text-[10px] mb-1.5">Pilih Karyawan</label>
               <select v-model="adjustBalanceForm.employee_id" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-emerald-500 font-medium text-slate-800">
                 <option value="">-- Pilih Karyawan --</option>
-                <option v-for="emp in (erpStore.employees || [])" :key="emp.id" :value="emp.id">
+                <option v-for="emp in (employeeStore.employees || [])" :key="emp.id" :value="emp.id">
                   {{ emp.name }} ({{ emp.nik || emp.employee_code || 'EMP' }}) &bull; {{ emp.dept || emp.department?.name || 'Kantor Pusat' }}
                 </option>
               </select>
@@ -737,7 +735,7 @@ onMounted(async () => {
             <label class="block font-bold text-slate-700 uppercase tracking-wider text-[10px] mb-1.5">Jenis Cuti</label>
             <select v-model="adjustBalanceForm.leave_type_id" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-emerald-500 font-medium text-slate-800">
               <option value="">-- Pilih Jenis Cuti --</option>
-              <option v-for="lt in erpStore.leaveTypes" :key="lt.id" :value="lt.id">
+              <option v-for="lt in leavesStore.leaveTypes" :key="lt.id" :value="lt.id">
                 {{ lt.name }} (Standar: {{ lt.quota }} Hari)
               </option>
             </select>

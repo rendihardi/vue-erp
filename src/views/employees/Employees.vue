@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useErpStore } from '../../store/erp'
+import { useEmployeeStore } from '../../store/employees'
 import BaseBadge from '../../components/BaseBadge.vue'
 import BaseButton from '../../components/BaseButton.vue'
 import BasePagination from '../../components/BasePagination.vue'
@@ -25,7 +25,7 @@ import {
 
 const route = useRoute()
 const router = useRouter()
-const erpStore = useErpStore()
+const employeeStore = useEmployeeStore()
 
 const activeTab = ref(route.query.tab || 'employees')
 const searchQ = ref('')
@@ -35,13 +35,13 @@ const loadTabData = async (tab, page = 1) => {
   try {
     isLoading.value = true
     if (tab === 'employees') {
-      await erpStore.loadEmployeesPaginated(page, 10, searchQ.value)
+      await employeeStore.loadEmployeesPaginated(page, 10, searchQ.value)
     } else if (tab === 'locations') {
-      await erpStore.loadOfficeLocationsPaginated(page, 10)
+      await employeeStore.loadOfficeLocationsPaginated(page, 10)
     } else if (tab === 'departments') {
-      await erpStore.loadDepartmentsPaginated(page, 10)
+      await employeeStore.loadDepartmentsPaginated(page, 10)
     } else if (tab === 'positions') {
-      await erpStore.loadPositionsPaginated(page, 10)
+      await employeeStore.loadPositionsPaginated(page, 10)
     }
   } finally {
     isLoading.value = false
@@ -81,13 +81,13 @@ const handleDelete = async (type, id) => {
   if (!confirm('Apakah Anda yakin ingin menghapus data ini?')) return
   try {
     if (type === 'employee') {
-      await erpStore.deleteEmployeeAction(id)
+      await employeeStore.deleteEmployeeAction(id)
     } else if (type === 'location') {
-      await erpStore.deleteOfficeLocationAction(id)
+      await employeeStore.deleteOfficeLocationAction(id)
     } else if (type === 'department') {
-      await erpStore.deleteDepartmentAction(id)
+      await employeeStore.deleteDepartmentAction(id)
     } else if (type === 'position') {
-      await erpStore.deletePositionAction(id)
+      await employeeStore.deletePositionAction(id)
     }
     loadTabData(activeTab.value, 1)
   } catch (err) {
@@ -200,7 +200,7 @@ onMounted(async () => {
           <tbody class="divide-y divide-slate-100 font-sans">
             <TableSkeleton v-if="isLoading" :columns="7" :rows="6" />
             <template v-else>
-              <tr v-for="emp in erpStore.employees" :key="emp.id" class="hover:bg-slate-50/80 transition-colors">
+              <tr v-for="emp in employeeStore.employees" :key="emp.id" class="hover:bg-slate-50/80 transition-colors">
                 <td class="py-3.5 px-4 font-mono text-slate-600 font-bold">{{ emp.nik }}</td>
                 <td class="py-3.5 px-4">
                   <div class="flex items-center gap-3">
@@ -248,7 +248,7 @@ onMounted(async () => {
                   </div>
                 </td>
               </tr>
-              <tr v-if="!erpStore.employees || erpStore.employees.length === 0">
+              <tr v-if="!employeeStore.employees || employeeStore.employees.length === 0">
                 <td colspan="7" class="py-8 text-center text-slate-400 font-medium">
                   Belum ada data karyawan terdaftar.
                 </td>
@@ -260,9 +260,9 @@ onMounted(async () => {
 
       <!-- Pagination Bar -->
       <BasePagination
-        :current-page="erpStore.employeesPaginated.current_page || 1"
-        :last-page="erpStore.employeesPaginated.last_page || 1"
-        :total="erpStore.employeesPaginated.total || erpStore.employees.length"
+        :current-page="employeeStore.employeesPaginated.current_page || 1"
+        :last-page="employeeStore.employeesPaginated.last_page || 1"
+        :total="employeeStore.employeesPaginated.total || employeeStore.employees.length"
         :per-page="10"
         @page-change="handleEmployeePageChange"
       />
@@ -299,7 +299,7 @@ onMounted(async () => {
           <tbody class="divide-y divide-slate-100 font-sans">
             <TableSkeleton v-if="isLoading" :columns="6" :rows="5" />
             <template v-else>
-              <tr v-for="loc in erpStore.officeLocations" :key="loc.id" class="hover:bg-slate-50/80 transition-colors">
+              <tr v-for="loc in employeeStore.officeLocations" :key="loc.id" class="hover:bg-slate-50/80 transition-colors">
                 <td class="py-3.5 px-4 font-bold text-slate-800">{{ loc.name }}</td>
                 <td class="py-3.5 px-4 text-slate-600 max-w-xs truncate">{{ loc.address || '-' }}</td>
                 <td class="py-3.5 px-4 font-mono text-slate-600 text-[11px]">
@@ -324,7 +324,7 @@ onMounted(async () => {
                   </div>
                 </td>
               </tr>
-              <tr v-if="erpStore.officeLocations.length === 0">
+              <tr v-if="employeeStore.officeLocations.length === 0">
                 <td colspan="6" class="py-8 text-center text-slate-400 font-medium">
                   Belum ada data lokasi kantor cabang terdaftar.
                 </td>
@@ -336,9 +336,9 @@ onMounted(async () => {
 
       <!-- Locations Pagination Bar -->
       <BasePagination
-        :current-page="erpStore.officeLocationsPaginated.current_page || 1"
-        :last-page="erpStore.officeLocationsPaginated.last_page || 1"
-        :total="erpStore.officeLocationsPaginated.total || erpStore.officeLocations.length"
+        :current-page="employeeStore.officeLocationsPaginated.current_page || 1"
+        :last-page="employeeStore.officeLocationsPaginated.last_page || 1"
+        :total="employeeStore.officeLocationsPaginated.total || employeeStore.officeLocations.length"
         :per-page="10"
         @page-change="handleLocationPageChange"
       />
@@ -371,7 +371,7 @@ onMounted(async () => {
           <tbody class="divide-y divide-slate-100 font-sans">
             <TableSkeleton v-if="isLoading" :columns="2" :rows="5" />
             <template v-else>
-              <tr v-for="dept in erpStore.departments" :key="dept.id" class="hover:bg-slate-50/80 transition-colors">
+              <tr v-for="dept in employeeStore.departments" :key="dept.id" class="hover:bg-slate-50/80 transition-colors">
                 <td class="py-3.5 px-4 font-bold text-slate-800">{{ dept.name }}</td>
                 <td class="py-3.5 px-4 text-center">
                   <div class="flex justify-center gap-1.5">
@@ -384,7 +384,7 @@ onMounted(async () => {
                   </div>
                 </td>
               </tr>
-              <tr v-if="erpStore.departments.length === 0">
+              <tr v-if="employeeStore.departments.length === 0">
                 <td colspan="2" class="py-8 text-center text-slate-400 font-medium">
                   Belum ada data departemen terdaftar.
                 </td>
@@ -396,9 +396,9 @@ onMounted(async () => {
 
       <!-- Departments Pagination Bar -->
       <BasePagination
-        :current-page="erpStore.departmentsPaginated.current_page || 1"
-        :last-page="erpStore.departmentsPaginated.last_page || 1"
-        :total="erpStore.departmentsPaginated.total || erpStore.departments.length"
+        :current-page="employeeStore.departmentsPaginated.current_page || 1"
+        :last-page="employeeStore.departmentsPaginated.last_page || 1"
+        :total="employeeStore.departmentsPaginated.total || employeeStore.departments.length"
         :per-page="10"
         @page-change="handleDepartmentPageChange"
       />
@@ -431,7 +431,7 @@ onMounted(async () => {
           <tbody class="divide-y divide-slate-100 font-sans">
             <TableSkeleton v-if="isLoading" :columns="2" :rows="5" />
             <template v-else>
-              <tr v-for="pos in erpStore.positions" :key="pos.id" class="hover:bg-slate-50/80 transition-colors">
+              <tr v-for="pos in employeeStore.positions" :key="pos.id" class="hover:bg-slate-50/80 transition-colors">
                 <td class="py-3.5 px-4 font-bold text-slate-800">{{ pos.name }}</td>
                 <td class="py-3.5 px-4 text-center">
                   <div class="flex justify-center gap-1.5">
@@ -444,7 +444,7 @@ onMounted(async () => {
                   </div>
                 </td>
               </tr>
-              <tr v-if="erpStore.positions.length === 0">
+              <tr v-if="employeeStore.positions.length === 0">
                 <td colspan="2" class="py-8 text-center text-slate-400 font-medium">
                   Belum ada data jabatan terdaftar.
                 </td>
@@ -456,9 +456,9 @@ onMounted(async () => {
 
       <!-- Positions Pagination Bar -->
       <BasePagination
-        :current-page="erpStore.positionsPaginated.current_page || 1"
-        :last-page="erpStore.positionsPaginated.last_page || 1"
-        :total="erpStore.positionsPaginated.total || erpStore.positions.length"
+        :current-page="employeeStore.positionsPaginated.current_page || 1"
+        :last-page="employeeStore.positionsPaginated.last_page || 1"
+        :total="employeeStore.positionsPaginated.total || employeeStore.positions.length"
         :per-page="10"
         @page-change="handlePositionPageChange"
       />
